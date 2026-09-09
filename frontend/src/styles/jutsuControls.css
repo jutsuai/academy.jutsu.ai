@@ -1,0 +1,276 @@
+/*
+ * Jutsu SIEM's form controls, ported to frappe-ui's.
+ *
+ * jutsuTokens.css re-colours what frappe-ui draws and jutsuChrome.css supplies
+ * the shell. Neither touches the SHAPE of a control, and that is where the two
+ * products diverge most: side by side, a Jutsu field and a frappe field are not
+ * the same object.
+ *
+ *   frappe (TextInput.vue, variant `subtle`, the LMS's default everywhere)
+ *     h-7 · bg-surface-gray-2 · border the same colour as the fill · no ring
+ *     -> a 28px grey slab with no visible edge
+ *
+ *   jutsu (components/ui/input.tsx)
+ *     h-8 · bg-card · border-input · focus ring-3 ring-ring/50
+ *     -> a 32px card-coloured field with a drawn edge that lights brand
+ *
+ * The same split runs through the Select/Combobox/MultiSelect trigger, the
+ * checkbox, the radio and the switch — and frappe's "on" states are monochrome
+ * (`bg-surface-gray-10`, `text-ink-gray-9`: near-white in dark mode) where
+ * Jutsu's are brand blue, which is most of why the LMS reads as a different
+ * product even after the palette matched.
+ *
+ * Done here rather than at ~400 call sites because frappe-ui emits a semantic
+ * hook on every control it renders — `data-slot`, plus `data-variant`,
+ * `data-size`, `data-state`, `data-disabled` from composables/useInputLabeling
+ * — so one rule per control covers every page, including ones written later.
+ * tests/controlHooks.test.ts pins those attributes, so if frappe-ui renames one
+ * the suite fails instead of the styling silently falling off.
+ *
+ * Unlayered on purpose: an attribute-pair selector is (0,2,0) and beats the
+ * (0,1,0) utilities frappe-ui puts on the element, without !important.
+ */
+
+/* ==========================================================================
+ * Text fields, textareas, and selection triggers
+ *
+ * `[data-slot='control']` is NOT "a text field" — frappe-ui puts it on every
+ * control it labels, so it is also on the Switch's <button>, and on the Slider,
+ * Rating, ThemeSwitcher and CodeEditor roots. A rule keyed on the slot alone
+ * therefore reaches all of them: an early draft of this file forced
+ * `height: 2rem` on `[data-slot='control'][data-size='sm']` and turned every
+ * switch in the app into a 26x32 blob, because the switch root matched.
+ *
+ * So every rule below names the ELEMENT as well: `input` (minus the types that
+ * are not text) and `textarea` for fields, `[data-slot='trigger']` for the
+ * Select / Combobox / MultiSelect trigger. tests/controlHooks.test.ts runs
+ * these exact selectors against each of those mounted components and fails if
+ * one starts matching something that is not a field.
+ * Ref: jutsu-siem apps/web/src/components/ui/{input,textarea,select}.tsx
+ * ========================================================================== */
+
+/* One caveat, found by tests/controlHooks.test.ts rather than by eye: frappe-ui
+   stamps `data-variant` and `data-size` on the Combobox and MultiSelect
+   triggers, but NOT on Select's — Select.vue builds its trigger by hand and
+   forwards only `data-slot` and `data-state`. Matching triggers on the variant
+   alone therefore skipped every <Select> in the app, silently. So a trigger is
+   matched by its variant where it has one, and by `role="combobox"` where it
+   does not, with `ghost` excluded by the one thing that distinguishes it in the
+   markup: it is the only variant that renders `bg-transparent`.
+
+   Both halves are needed, and neither may be dropped for the other. Popover
+   ALSO stamps `data-slot="trigger"`, but as-child — so the attribute lands on
+   whatever element the caller passed, usually a plain <Button>. Matching the
+   bare slot would give every popover trigger in the app a field's fill, border
+   and focus ring. Requiring a variant or the combobox role keeps this to the
+   three selection controls it is meant for. */
+input[data-slot='control']:not([type='checkbox']):not([type='radio']):not(
+		[type='range']
+	):is([data-variant='subtle'], [data-variant='outline']),
+textarea[data-slot='control']:is(
+		[data-variant='subtle'],
+		[data-variant='outline']
+	),
+[data-slot='trigger']:is([data-variant='subtle'], [data-variant='outline']),
+[data-slot='trigger'][role='combobox']:not([class~='bg-transparent']) {
+	background-color: var(--surface-base);
+	border-color: var(--input);
+	transition-property: color, background-color, border-color, box-shadow;
+	transition-duration: 150ms;
+}
+
+/* 28px -> 32px. Jutsu's Input has no size ladder at all: every text field in
+   the SIEM is h-8, and its Select trigger only drops to h-7 for the compact
+   `size="sm"` used in table footers. frappe's `sm` is the LMS's default, so
+   this is what brings the two to the same field height. `md` is already 32px;
+   `lg`/`xl` are frappe's 40px display inputs and are left alone.
+
+   A Select trigger is sized by its class rather than by `data-size`, for the
+   reason above — `min-h-7` is what frappe's `sm` trigger renders, whichever
+   component built it, so md and lg triggers are left alone either way. */
+input[data-slot='control'][data-size='sm']:not([type='checkbox']):not(
+		[type='radio']
+	):not([type='range']) {
+	height: 2rem;
+	min-height: 2rem;
+}
+
+[data-slot='trigger']:is([data-variant='subtle'], [data-variant='outline'])[data-size='sm'],
+[data-slot='trigger'][role='combobox'][class~='min-h-7'] {
+	height: 2rem;
+	min-height: 2rem;
+}
+
+/* A textarea grows with its content, so it gets the floor and not the height. */
+textarea[data-slot='control'] {
+	height: auto;
+	min-height: 4rem;
+}
+
+/* Jutsu's field does not change fill on hover — it is already the card colour,
+   and the SIEM reserves a fill change for controls that OPEN something. So the
+   hover here is on the edge, and only the trigger warms its fill
+   (`hover:bg-muted/80` in select.tsx). frappe hovers every field to
+   `bg-surface-gray-3`, which against a card fill reads as the field being
+   pressed. */
+:is(input, textarea)[data-slot='control']:not([type='checkbox']):not(
+		[type='radio']
+	):not([type='range']):is(
+		[data-variant='subtle'],
+		[data-variant='outline']
+	):hover:not(:disabled) {
+	background-color: var(--surface-base);
+	border-color: var(--outline-gray-3);
+}
+
+[data-slot='trigger']:is([data-variant='subtle'], [data-variant='outline']):hover:not(
+		[data-disabled='true']
+	):not(:disabled),
+[data-slot='trigger'][role='combobox']:not([class~='bg-transparent']):hover:not(
+		[data-disabled='true']
+	):not(:disabled) {
+	background-color: color-mix(in oklab, var(--muted) 80%, var(--surface-base));
+	border-color: var(--outline-gray-3);
+}
+
+/* `focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50`.
+   frappe instead drops a `shadow-sm` and darkens the border, which is nearly
+   invisible on a dark canvas — the SIEM's ring is the loudest single signal in
+   its form language. Drawn as a box-shadow rather than an outline so it hugs
+   the corner radius.
+
+   `:focus-within` covers the Combobox, whose focus lands on an inner <input>
+   inside the trigger; `:focus-visible` covers the rest. Both are stated because
+   `:focus-within` has no `-visible` form, and a Combobox opened by mouse should
+   still show the ring — it is the only thing marking which field is live. */
+:is(input, textarea)[data-slot='control']:not([type='checkbox']):not(
+		[type='radio']
+	):not([type='range']):is(
+		[data-variant='subtle'],
+		[data-variant='outline']
+	):is(:focus-visible, :focus-within),
+[data-slot='trigger']:is([data-variant='subtle'], [data-variant='outline']):is(
+		:focus-visible,
+		:focus-within
+	),
+[data-slot='trigger'][role='combobox']:not([class~='bg-transparent']):is(
+		:focus-visible,
+		:focus-within
+	) {
+	border-color: var(--ring);
+	box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
+	outline: none;
+}
+
+/* Invalid: the same ring in destructive, per `aria-invalid:ring-3
+   aria-invalid:ring-destructive/20`. frappe already sets aria-invalid and
+   data-state from the `error` prop, so nothing has to be passed for this. */
+:is(input, textarea)[data-slot='control']:not([type='checkbox']):not(
+		[type='radio']
+	):not([type='range'])[data-state='invalid'],
+[data-slot='trigger'][data-variant][data-state='invalid'] {
+	border-color: var(--destructive);
+}
+:is(input, textarea)[data-slot='control']:not([type='checkbox']):not(
+		[type='radio']
+	):not([type='range'])[data-state='invalid']:is(
+		:focus-visible,
+		:focus-within
+	),
+[data-slot='trigger'][data-variant][data-state='invalid']:is(:focus-visible, :focus-within) {
+	border-color: var(--destructive);
+	box-shadow: 0 0 0 3px color-mix(in oklab, var(--destructive) 25%, transparent);
+}
+
+/* `disabled:bg-muted disabled:opacity-50`, replacing frappe's `bg-surface-gray-1`
+   — which on the dark canvas is barely distinguishable from an enabled field. */
+:is(input, textarea)[data-slot='control']:not([type='checkbox']):not(
+		[type='radio']
+	):not([type='range']):disabled,
+[data-slot='trigger'][data-variant][data-disabled='true'] {
+	background-color: var(--muted);
+	border-color: transparent;
+	opacity: 0.5;
+}
+
+/* ==========================================================================
+ * Checkbox and radio
+ *
+ * frappe: 14px, `rounded-sm`, and `text-ink-gray-9` — which @tailwindcss/forms
+ * paints as the checked fill (`background-color: currentColor`), so a ticked
+ * box comes out near-white in dark mode. Jutsu: 16px, a 4px radius, and
+ * `data-checked:bg-primary` — brand, with the plugin's white glyph on top.
+ * Ref: jutsu-siem apps/web/src/components/ui/{checkbox,radio-group}.tsx
+ * ========================================================================== */
+
+input[type='checkbox'][data-slot='control'],
+input[type='radio'][data-slot='control'] {
+	width: 1rem;
+	height: 1rem;
+	color: var(--brand);
+	border-color: var(--outline-gray-3);
+}
+
+input[type='checkbox'][data-slot='control'] {
+	border-radius: 4px;
+}
+
+input[type='checkbox'][data-slot='control']:hover:not(:disabled),
+input[type='radio'][data-slot='control']:hover:not(:disabled) {
+	border-color: color-mix(in oklab, var(--brand) 45%, var(--outline-gray-3));
+}
+
+input[type='checkbox'][data-slot='control']:checked,
+input[type='radio'][data-slot='control']:checked {
+	border-color: var(--brand);
+}
+
+input[type='checkbox'][data-slot='control']:focus-visible,
+input[type='radio'][data-slot='control']:focus-visible {
+	box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
+	outline: none;
+}
+
+/* ==========================================================================
+ * Switch
+ *
+ * frappe's on-state is `bg-surface-gray-10` (the solid-button grey — white in
+ * dark mode); Jutsu's is `data-checked:bg-primary`. Geometry follows the SIEM's
+ * default size, 32x18.4 with a 16px thumb, against frappe's 26x16 with 12px.
+ * Ref: jutsu-siem apps/web/src/components/ui/switch.tsx
+ * ========================================================================== */
+
+[role='switch'][data-state='checked'] {
+	background-color: var(--brand);
+}
+
+[role='switch'][data-state='checked']:hover:not(:disabled) {
+	background-color: color-mix(in oklab, var(--brand) 88%, var(--foreground));
+}
+
+[role='switch']:focus-visible {
+	box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
+	outline: none;
+}
+
+/* ==========================================================================
+ * Tab buttons
+ *
+ * The SIEM's segmented control: a `bg-muted` track at h-8 with 3px of inset
+ * padding, and an active chip lifted onto `bg-background` with a shadow.
+ * frappe's track is h-7 with 1px of padding, and its active chip is drawn by a
+ * sliding indicator behind the buttons. Only the track geometry is adjusted —
+ * the indicator itself already lands on the right surface.
+ * Ref: jutsu-siem apps/web/src/components/ui/tabs.tsx
+ * ========================================================================== */
+
+[role='radiogroup'][data-orientation='horizontal']
+	> div:has(> [data-slot='tab-button']) {
+	height: 2rem;
+	padding: 3px;
+	border-radius: var(--radius-4);
+}
+
+[data-slot='tab-button'] {
+	border-radius: calc(var(--radius-4) - 3px);
+}

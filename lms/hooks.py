@@ -16,10 +16,56 @@ required_apps = ["frappe/payments"]
 
 
 def get_lms_path():
+	"""The path the SPA is mounted at, without slashes.
+
+	An empty string is meaningful: it means the site root (`"lms_path": ""` in
+	site_config.json), which is why the check below is an explicit `is not None`
+	rather than a truthiness test — `or "lms"` would silently turn the root
+	setting back into a /lms prefix.
+	"""
 	path = "lms"
-	if frappe.conf and frappe.conf.get("lms_path"):
-		path = frappe.conf.get("lms_path")
+	if frappe.conf:
+		configured = frappe.conf.get("lms_path")
+		if configured is not None:
+			path = configured
 	return path.strip("/")
+
+
+def is_lms_at_root():
+	"""True when the SPA owns the site root rather than a /lms prefix."""
+	return get_lms_path() == ""
+
+
+# The app's top-level route segments, mirroring frontend/src/routes.js.
+#
+# Only used in root mode. Frappe has to be told which first segments belong to
+# the SPA, because the obvious `/<path:app_path>` catch-all would also swallow
+# /login, /app, /api and every other Frappe route — the app would work and
+# everything around it would break.
+LMS_ROUTE_SEGMENTS = (
+	"assignment-submission",
+	"assignment-submissions",
+	"assignments",
+	"batches",
+	"billing",
+	"certified-participants",
+	"courses",
+	"data-import",
+	"design-system",
+	"job-opening",
+	"job-openings",
+	"persona",
+	"programming-exercises",
+	"programs",
+	"quiz",
+	"quiz-submission",
+	"quiz-submissions",
+	"quizzes",
+	"settings",
+	"statistics",
+	"user",
+	"you",
+)
 
 
 # Includes in <head>
@@ -30,7 +76,39 @@ def get_lms_path():
 # app_include_js = "/assets/lms/js/lms.js"
 
 # include js, css files in header of web template
-# web_include_css = "/assets/lms/css/lms.css"
+# The Jutsu theme for Frappe's own server-rendered pages — login, sign-up,
+# forgot-password, the website shell. Those pages are rendered by Frappe's
+# website bundle, not by the SPA, so nothing the app imports reaches them and
+# /login stayed light while the rest of the product went dark. They do use the
+# same espresso token names, so re-declaring the variables carries the theme
+# across. Generated from the app's own token file — see
+# frontend/scripts/build-web-theme.mjs; `yarn build` regenerates it.
+def _jutsu_web_css():
+	"""The web theme's URL, carrying a content hash as a cache buster.
+
+	The file is a plain static asset under `public/`, not a Frappe bundle, so
+	nothing appends a version to it and a browser would hold the first copy it
+	ever fetched — which is exactly what happened while this was being built:
+	the file on disk was correct and the page kept rendering the old one.
+	Hashing the contents means the URL changes only when the theme does.
+
+	Falls back to the bare path if the file cannot be read, so a missing or
+	unreadable theme degrades to "no cache busting" rather than to a broken
+	<link> or an exception during hook evaluation.
+	"""
+	import hashlib
+	import os
+
+	path = os.path.join(os.path.dirname(__file__), "public", "css", "jutsu-web.css")
+	try:
+		with open(path, "rb") as handle:
+			digest = hashlib.sha1(handle.read()).hexdigest()[:10]
+	except OSError:
+		return "/assets/lms/css/jutsu-web.css"
+	return f"/assets/lms/css/jutsu-web.css?v={digest}"
+
+
+web_include_css = [_jutsu_web_css()]
 web_include_js = []
 
 # include custom scss in every website theme (without file extension ".scss")
@@ -53,7 +131,10 @@ web_include_js = []
 # ----------
 
 # application home page (will override Website Settings)
-# home_page = "login"
+# The LMS *is* the product here, so the site root serves the app rather than a
+# Frappe website home page. Deep links keep working through the existing
+# `/{lms_path}/...` rules below; this only decides what "/" renders.
+home_page = "_lms"
 
 # website user home page (by Role)
 # role_home_page = {
@@ -183,17 +264,42 @@ override_whitelisted_methods = {
 # auto_cancel_exempted_doctypes = ["Auto Repeat"]
 
 # Add all simple route rules here
-website_route_rules = [
-	{"from_route": f"/{get_lms_path()}/<path:app_path>", "to_route": "_lms"},
-	{"from_route": f"/{get_lms_path()}", "to_route": "_lms"},
+#
+# Two shapes, chosen by `lms_path`:
+#
+#   prefixed (default, lms_path="lms")  one `<path:app_path>` rule under the
+#       prefix — everything below /lms is the SPA's, nothing above it is.
+#
+#   root (lms_path="")  one rule PER top-level segment. A bare
+#       `/<path:app_path>` would match /login, /app, /api and every other
+#       Frappe route as well, so the SPA's segments are named explicitly.
+#       `/` itself is served by `home_page` above, not by a rule.
+website_route_rules = (
+	[
+		{"from_route": f"/{segment}", "to_route": "_lms"}
+		for segment in LMS_ROUTE_SEGMENTS
+	]
+	+ [
+		{"from_route": f"/{segment}/<path:app_path>", "to_route": "_lms"}
+		for segment in LMS_ROUTE_SEGMENTS
+	]
+	if is_lms_at_root()
+	else [
+		{"from_route": f"/{get_lms_path()}/<path:app_path>", "to_route": "_lms"},
+		{"from_route": f"/{get_lms_path()}", "to_route": "_lms"},
+	]
+) + [
 	{
 		"from_route": "/courses/<course_name>/<certificate_id>",
 		"to_route": "certificate",
 	},
 ]
 
+# The prefix redirects exist to move legacy top-level URLs under /lms. At the
+# root they would point each URL at itself, so only the genuine rename survives.
 website_redirects = [
 	{"source": "/update-profile", "target": "/edit-profile"},
+] + ([] if is_lms_at_root() else [
 	{"source": "/courses", "target": f"/{get_lms_path()}/courses"},
 	{
 		"source": r"^/courses/.*$",
@@ -213,7 +319,7 @@ website_redirects = [
 	},
 	{"source": "/statistics", "target": f"/{get_lms_path()}/statistics"},
 	{"source": "_lms", "target": f"/{get_lms_path()}"},
-]
+])
 
 update_website_context = [
 	"lms.widgets.update_website_context",

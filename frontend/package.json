@@ -6,10 +6,11 @@
 	"scripts": {
 		"dev": "vite",
 		"serve": "vite preview",
-		"build": "vite build --base=/assets/lms/frontend/ && yarn copy-html-entry",
+		"build": "vite build --base=/assets/lms/frontend/ && yarn build-web-theme && yarn copy-html-entry",
 		"copy-html-entry": "cp ../lms/public/frontend/index.html ../lms/www/_lms.html",
 		"test": "vitest run",
-		"test:watch": "vitest"
+		"test:watch": "vitest",
+		"build-web-theme": "node scripts/build-web-theme.mjs"
 	},
 	"dependencies": {
 		"@editorjs/editorjs": "2.29.0",
@@ -20,6 +21,7 @@
 		"@editorjs/paragraph": "2.11.3",
 		"@editorjs/simple-image": "1.6.0",
 		"@editorjs/table": "2.4.2",
+		"@fontsource-variable/geist": "^5.2.9",
 		"@framework/ui": "link:../../frappe/ui",
 		"@headlessui/vue": "1.7.23",
 		"@vueuse/core": "^14.1.0",

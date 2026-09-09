@@ -1,7 +1,7 @@
 <template>
 	<div
-		class="flex h-full flex-col justify-between transition-all duration-300 ease-in-out border-e bg-surface-sidebar overflow-x-hidden"
-		:class="sidebarStore.isSidebarCollapsed ? 'w-14' : 'w-56'"
+		class="flex h-full flex-col justify-between transition-all duration-300 ease-in-out border-e overflow-x-hidden"
+		:class="sidebarStore.isSidebarCollapsed ? 'w-14' : 'w-64'"
 	>
 		<div
 			class="flex flex-col overflow-y-auto flex-1 min-h-0"
@@ -9,14 +9,14 @@
 		>
 			<UserDropdown :isCollapsed="sidebarStore.isSidebarCollapsed" />
 			<div class="flex flex-col" v-if="sidebarSettings.data">
-				<div v-for="link in sidebarLinks" class="mx-2 my-2.5">
+				<div v-for="link in sidebarLinks" class="px-2 py-1">
 					<div
 						v-if="!link.hideLabel"
-						class="mb-2 mt-3 flex cursor-pointer gap-1.5 px-1 text-p-base-medium text-ink-gray-5 transition-all duration-300 ease-in-out"
+						class="flex h-8 shrink-0 items-center gap-1.5 px-3 text-xs font-medium text-ink-gray-5 transition-all duration-200 ease-out"
 					>
-						<span>{{ __(link.label) }}</span>
+						<span class="truncate">{{ __(link.label) }}</span>
 					</div>
-					<nav class="space-y-1">
+					<nav class="flex flex-col gap-0.5">
 						<div v-for="item in link.items">
 							<SidebarLink
 								:link="item"
@@ -167,7 +167,7 @@
 				>
 					<Tooltip v-if="readOnlyMode && sidebarStore.isSidebarCollapsed">
 						<span
-							class="lucide-circle-alert size-4 text-ink-gray-7 cursor-pointer"
+							class="lucide-circle-alert size-4 text-ink-gray-6"
 						/>
 						<template #body>
 							<div
@@ -185,27 +185,40 @@
 						v-if="showAppointmentIcon"
 						:text="__('Book a free onboarding session with the Frappe team')"
 					>
-						<span
-							class="lucide-phone size-4 text-ink-gray-7 cursor-pointer"
+						<button
+							type="button"
+							:aria-label="__('Book a free onboarding session with the Frappe team')"
+							class="grid size-7 shrink-0 place-items-center rounded-3 text-ink-gray-6 transition-colors hover:bg-surface-gray-2 hover:text-ink-gray-9 focus:outline-none focus-visible:focus-ring-blue"
 							@click="redirectToAppointmentScreen()"
-						/>
+						>
+							<span class="lucide-phone size-4" aria-hidden="true" />
+						</button>
 					</Tooltip>
 					<Tooltip v-if="showOnboarding" :text="__('Help')">
-						<span
-							class="lucide-circle-help size-4 text-ink-gray-7 cursor-pointer"
+						<button
+							type="button"
+							:aria-label="__('Help')"
+							:aria-expanded="showHelpModal"
+							class="grid size-7 shrink-0 place-items-center rounded-3 text-ink-gray-6 transition-colors hover:bg-surface-gray-2 hover:text-ink-gray-9 focus:outline-none focus-visible:focus-ring-blue"
 							@click="
 								() => {
 									showHelpModal = minimize ? true : !showHelpModal
 									minimize = !showHelpModal
 								}
 							"
-						/>
+						>
+							<span class="lucide-circle-help size-4" aria-hidden="true" />
+						</button>
 					</Tooltip>
 					<Tooltip :text="__('Powered by Frappe Learning')">
-						<span
-							class="lucide-zap size-4 text-ink-gray-7 cursor-pointer"
+						<button
+							type="button"
+							:aria-label="__('Powered by Frappe Learning')"
+							class="grid size-7 shrink-0 place-items-center rounded-3 text-ink-gray-6 transition-colors hover:bg-surface-gray-2 hover:text-ink-gray-9 focus:outline-none focus-visible:focus-ring-blue"
 							@click="redirectToWebsite()"
-						/>
+						>
+							<span class="lucide-zap size-4" aria-hidden="true" />
+						</button>
 					</Tooltip>
 				</div>
 				<Tooltip
@@ -213,16 +226,26 @@
 						sidebarStore.isSidebarCollapsed ? __('Expand') : __('Collapse')
 					"
 				>
-					<CollapseSidebar
-						class="size-4 text-ink-gray-7 duration-300 stroke-1.5 ease-in-out cursor-pointer"
-						:style="{
-							transform:
-								isRtl !== sidebarStore.isSidebarCollapsed
-									? 'rotateY(180deg)'
-									: '',
-						}"
+					<button
+						type="button"
+						:aria-label="
+							sidebarStore.isSidebarCollapsed ? __('Expand') : __('Collapse')
+						"
+						:aria-expanded="!sidebarStore.isSidebarCollapsed"
+						class="grid size-7 shrink-0 place-items-center rounded-3 text-ink-gray-6 transition-colors hover:bg-surface-gray-2 hover:text-ink-gray-9 focus:outline-none focus-visible:focus-ring-blue"
 						@click="toggleSidebar()"
-					/>
+					>
+						<CollapseSidebar
+							class="size-4 stroke-1.5 duration-300 ease-in-out"
+							aria-hidden="true"
+							:style="{
+								transform:
+									isRtl !== sidebarStore.isSidebarCollapsed
+										? 'rotateY(180deg)'
+										: '',
+							}"
+						/>
+					</button>
 				</Tooltip>
 			</div>
 		</div>

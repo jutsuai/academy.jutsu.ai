@@ -1,0 +1,264 @@
+/*
+ * Jutsu SIEM chrome, ported to the LMS.
+ *
+ * jutsuTokens.css re-colours everything frappe-ui draws. This file supplies the
+ * parts of the Jutsu look that are not colour: the ruled canvas, the Geist
+ * setting, the translucent chrome/rail surfaces, the focus and scrollbar
+ * treatments, and a handful of geometry corrections where frappe's default
+ * shape differs from Jutsu's.
+ *
+ * Structure mirrors jutsu-siem/apps/web/src/styles.css: @layer base for the
+ * document, @layer components for the reusable surfaces, then the utilities.
+ */
+
+@layer base {
+	/* The canvas itself is painted in index.css, which already owns the "paint
+	   the document" rule and its history. Only the type rendering is set here:
+	   Geist is drawn for antialiased rendering, and the UA's subpixel default
+	   thickens it noticeably against the SIEM's reference. */
+	html {
+		-webkit-font-smoothing: antialiased;
+		-moz-osx-font-smoothing: grayscale;
+	}
+
+	/* Jutsu tints selection with the brand rather than the UA blue. */
+	::selection {
+		background: color-mix(in oklab, var(--brand) 28%, transparent);
+		color: var(--ink-gray-9);
+	}
+
+	/* Jutsu's @layer base — an enabled control looks clickable. frappe leaves
+	   this to the UA, which gives buttons the arrow cursor. */
+	button:not(:disabled),
+	[role='button']:not([aria-disabled='true']) {
+		cursor: pointer;
+	}
+
+	/* Thin, self-coloured scrollbars everywhere, matching the SIEM's
+	   `scrollbar-thin`. Applied to the document rather than per-container
+	   because the LMS scrolls in many more places than the SIEM does. */
+	* {
+		scrollbar-width: thin;
+		scrollbar-color: var(--outline-gray-2) transparent;
+	}
+	*::-webkit-scrollbar {
+		width: 8px;
+		height: 8px;
+	}
+	*::-webkit-scrollbar-track {
+		background: transparent;
+	}
+	*::-webkit-scrollbar-thumb {
+		background: var(--outline-gray-2);
+		border-radius: 4px;
+	}
+	*::-webkit-scrollbar-thumb:hover {
+		background: color-mix(in oklab, var(--ink-gray-5) 50%, transparent);
+	}
+}
+
+@layer components {
+	/* ---------------------------------------------------------------- surfaces
+	   The four layered surfaces the SIEM's shell is built from, copied verbatim
+	   so anything ported across keeps its material. */
+	.surface-panel {
+		background-color: var(--surface-panel);
+		border-color: color-mix(in oklab, var(--border) 80%, transparent);
+		box-shadow:
+			inset 0 1px 0 var(--surface-highlight),
+			0 18px 40px -32px var(--surface-shadow);
+		backdrop-filter: blur(14px) saturate(1.08);
+	}
+
+	.surface-floating {
+		background-color: var(--surface-floating);
+		border-color: color-mix(in oklab, var(--border) 78%, transparent);
+		box-shadow:
+			inset 0 1px 0 var(--surface-highlight),
+			0 22px 56px -24px var(--surface-shadow);
+		backdrop-filter: blur(18px) saturate(1.08);
+	}
+
+	.surface-chrome {
+		background-color: var(--surface-chrome);
+		border-color: color-mix(in oklab, var(--border) 66%, transparent);
+		box-shadow: inset 0 -1px 0
+			color-mix(in oklab, var(--border) 18%, transparent);
+		backdrop-filter: blur(18px) saturate(1.06);
+	}
+
+	.surface-rail {
+		background-color: var(--surface-rail);
+		border-color: color-mix(in oklab, var(--sidebar-border) 72%, transparent);
+		box-shadow: inset -1px 0 0
+			color-mix(in oklab, var(--sidebar-border) 18%, transparent);
+		backdrop-filter: blur(22px) saturate(1.08);
+	}
+
+	/* Jutsu draws its input focus ring as a concentric outer halo on a wrapper,
+	   because Chromium renders a spread box-shadow with the wrong corner radius
+	   on a native <input>. Kept for markup ported from the SIEM. */
+	.focus-ring-host:focus-within::after {
+		content: '';
+		position: absolute;
+		inset: -3px;
+		border-radius: calc(var(--radius) + 3px);
+		padding: 3px;
+		background: color-mix(in oklab, var(--ring) 50%, transparent);
+		pointer-events: none;
+		-webkit-mask:
+			linear-gradient(#000 0 0) content-box,
+			linear-gradient(#000 0 0);
+		-webkit-mask-composite: xor;
+		mask:
+			linear-gradient(#000 0 0) content-box,
+			linear-gradient(#000 0 0);
+		mask-composite: exclude;
+	}
+}
+
+@layer utilities {
+	/* The ruled plane as an opt-in utility, for panels that want it locally. */
+	.bg-grid {
+		background-color: var(--surface-canvas);
+		background-image: linear-gradient(
+				to right,
+				var(--grid-line) 1px,
+				transparent 1px
+			),
+			linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px);
+		background-size: var(--grid-size) var(--grid-size);
+	}
+
+	/* The canvas as a flat fill — for surfaces that sit on the page plane but
+	   must not repeat the grid behind their own content. */
+	.bg-surface-canvas {
+		background-color: var(--surface-canvas);
+	}
+
+	.pulse-dot {
+		animation: pulse-dot 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+	}
+}
+
+@keyframes pulse-dot {
+	0%,
+	100% {
+		opacity: 1;
+	}
+	50% {
+		opacity: 0.5;
+	}
+}
+
+/* ============================================================== app geometry
+ * Corrections where frappe's default shape differs from Jutsu's. Each is scoped
+ * to the slot or class that actually carries it, never to a bare element.
+ */
+
+/* The rail. Applied by DesktopLayout to the sidebar column, rather than by
+   overriding the `bg-surface-sidebar` utility, so a component that asks for the
+   flat sidebar fill still gets one. `--surface-rail` is already the sidebar
+   colour at 84–96% alpha, so this is the same plane, blurred over the canvas.
+   `.surface-rail` above is the SIEM's own class and carries its inset edge;
+   this is the LMS's sidebar, which draws its edge with `border-e`. */
+.jutsu-rail {
+	background-color: var(--surface-rail);
+	backdrop-filter: blur(22px) saturate(1.08);
+}
+
+/* Jutsu titles run tight (`tracking-tight`); frappe's display sizes ship with
+   positive tracking from the Figma export. Element selectors only, so a
+   `tracking-*` utility on the same heading still wins. Sized headings that are
+   not h1–h3 already come out at zero tracking from tailwind.config.js. */
+h1,
+h2,
+h3 {
+	letter-spacing: -0.02em;
+}
+
+/* Jutsu's table head: 40px tall, muted, medium. frappe's ListView header is
+   already close; this pins the colour and weight so the two read alike. */
+[data-slot='list-header'],
+thead [data-slot='list-row'] {
+	color: var(--ink-gray-5);
+}
+
+/* A dropdown, popover or dialog in Jutsu floats on a near-opaque blurred plate
+   rather than a flat white card. frappe portals all three to <body>, so these
+   are matched on the slot rather than nested under a container. */
+.menu-content,
+[data-slot='content-body'] {
+	backdrop-filter: blur(18px) saturate(1.08);
+}
+
+/* ---------------------------------------------------------------- card fill
+ * The LMS was written against a white page, so its cards are bare
+ * `border rounded-md p-3` with NO background — on white that reads as a card
+ * for free. The Jutsu canvas is a ruled plane, so those same boxes became
+ * transparent holes with the grid showing through them, which is what made the
+ * student home (and Statistics, and the quiz builder) look washed out while a
+ * page built from painted surfaces looked right.
+ *
+ * 66 such boxes across 48 files. Giving them the card surface here rather than
+ * editing each one keeps a single source for "a bordered box is a card", and
+ * covers any written later.
+ *
+ * Scoped deliberately:
+ *   - `[class~="border"]` is the exact word, so `border-b` dividers and
+ *     `border-outline-*` colour-only classes never match.
+ *   - only the card radii (md/lg/xl); a bare `rounded` is a small control and
+ *     `rounded-full` is a pill or an avatar, and neither wants a surface.
+ *   - `:not([class*="bg-"])` yields to anything that already states a fill,
+ *     including `bg-transparent`, so an intentional transparent box stays that
+ *     way.
+ */
+:where([class~='border'], [class^='border-2'], [class*=' border-2']):is(
+		[class*='rounded-md'],
+		[class*='rounded-lg'],
+		[class*='rounded-xl']
+	):not([class*='bg-']) {
+	background-color: var(--surface-base);
+}
+
+/* ------------------------------------------------------------------ dialogs
+ * Jutsu's dialog is a floating plate over a blurred, theme-tinted scrim
+ * (ui/dialog.tsx: `surface-floating` on the panel, `bg-background/60
+ * supports-backdrop-filter:backdrop-blur-sm` on the overlay). frappe's is an
+ * opaque `bg-surface-elevation-1` card over a flat black wash, which on the dark
+ * canvas reads as a hole rather than as something lifted above the page.
+ *
+ * The panel stays opaque here rather than taking `surface-floating` outright:
+ * frappe paints `bg-surface-elevation-1` again on the dialog's inner body, so a
+ * translucent shell would simply be covered by it. Instead both are moved onto
+ * `--popover` — the surface Jutsu floats its own dialogs and menus on, one step
+ * ABOVE `--card`. That is what makes a field inside a dialog read as recessed:
+ * jutsuControls.css puts every input on `--surface-base`, and the dialog is now
+ * lighter than the fields it holds, exactly as in the SIEM.
+ *
+ * Matched on frappe's own `.dialog-content` / `.dialog-overlay` hooks, which it
+ * sets alongside the utilities (Dialog.vue:5, :32) precisely so a consumer can
+ * restyle the shell.
+ *
+ * The `:root .x.x` prefix is specificity, not decoration. frappe puts the fill
+ * on the element as a utility, and Tailwind emits utilities AFTER this file, so
+ * a plain `.dialog-overlay` ties `.bg-black-overlay-200` on specificity and
+ * loses on source order — and its dark counterpart, `[data-theme='dark']
+ * .dark\:bg-black-overlay-700`, outranks it outright. `:root` plus the doubled
+ * class clears both without reaching for !important. */
+:root .dialog-content.dialog-content,
+:root .dialog-content [class~='bg-surface-elevation-1'] {
+	background-color: var(--popover);
+}
+
+:root .dialog-content.dialog-content {
+	border: 1px solid color-mix(in oklab, var(--border) 78%, transparent);
+	box-shadow:
+		inset 0 1px 0 var(--surface-highlight),
+		0 22px 56px -24px var(--surface-shadow);
+}
+
+:root .dialog-overlay.dialog-overlay {
+	background-color: color-mix(in oklab, var(--background) 60%, transparent);
+	backdrop-filter: blur(4px);
+}

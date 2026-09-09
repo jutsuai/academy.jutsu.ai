@@ -11,6 +11,15 @@ export const routes = [
 		component: () => import('@/pages/Home/Home.vue'),
 	},
 	{
+		// A live gallery of the ported Jutsu component set — see
+		// pages/DesignSystem.vue. Unguarded on purpose: it renders only static
+		// sample data, and the whole point is that anyone reviewing the theme can
+		// reach it without an account of a particular role.
+		path: '/design-system',
+		name: 'DesignSystem',
+		component: () => import('@/pages/DesignSystem.vue'),
+	},
+	{
 		path: '/courses',
 		name: 'Courses',
 		component: () => import('@/pages/Courses/Courses.vue'),

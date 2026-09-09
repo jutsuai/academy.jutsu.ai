@@ -145,25 +145,26 @@
 			</div>
 		</div>
 
+		<!-- jutsu-siem soc/GridTile.tsx `GridTileSkeleton`, on the grid ListPage
+			 now lays out. Both the grid and the tile shape are restated from the
+			 real thing rather than shared, which is the standing hazard with this
+			 file — see the note below about the 8px header jump. -->
 		<div
 			v-else-if="variant === 'cards'"
-			class="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4"
+			class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
 		>
 			<div
 				v-for="i in count"
 				:key="i"
-				class="flex h-full flex-col rounded-md border p-4"
+				class="flex h-full flex-col gap-2.5 rounded-4 border border-outline-gray-1 px-3 py-2.5"
 			>
-				<div class="h-5 w-3/4 rounded bg-surface-gray-3" />
-				<div class="mt-2 h-4 w-1/3 rounded bg-surface-gray-2" />
-				<div class="mt-4 space-y-2">
-					<div class="h-4 w-full rounded bg-surface-gray-2" />
-					<div class="h-4 w-5/6 rounded bg-surface-gray-2" />
+				<div class="flex justify-between gap-3">
+					<div class="h-3.5 w-3/5 rounded bg-surface-gray-3" />
+					<div class="h-4 w-12 rounded bg-surface-gray-2" />
 				</div>
-				<div class="mt-6 flex items-center gap-2">
-					<div class="size-6 shrink-0 rounded-full bg-surface-gray-2" />
-					<div class="h-4 w-24 rounded bg-surface-gray-2" />
-				</div>
+				<div class="h-3 w-full rounded bg-surface-gray-2" />
+				<div class="h-3 w-4/5 rounded bg-surface-gray-2" />
+				<div class="mt-auto h-3 w-1/3 rounded bg-surface-gray-2" />
 			</div>
 		</div>
 

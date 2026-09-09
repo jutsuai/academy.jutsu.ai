@@ -44,11 +44,31 @@ describe('EmptyStateLayout', () => {
 		).toContain('sm:w-8/12')
 	})
 
-	it('draws a larger icon on a phone than on the desk', () => {
-		const icon = mountEmpty().get('span.lucide-graduation-cap')
+	// The icon used to be a loose 40px glyph that shrank to 30px on the desk.
+	// It is now the SIEM's `EmptyMedia variant="icon"` (ui/empty.tsx): one
+	// fixed 32px tile with a muted fill and a 16px glyph inside it, at every
+	// width. The glyph no longer carries the size — the tile does — so a
+	// stray `size-*` back on the glyph would silently break the tile's
+	// centring, which is what this pins.
+	it('sets the icon in a tile rather than sizing the glyph itself', () => {
+		const glyph = mountEmpty().get('span.lucide-graduation-cap')
+		const tile = glyph.element.parentElement as HTMLElement
 
-		expect(icon.classes()).toContain('size-10')
-		expect(icon.classes()).toContain('sm:size-7.5')
+		expect(glyph.classes()).toContain('size-4')
+		expect(tile.className).toContain('size-8')
+		expect(tile.className).toContain('place-items-center')
+		expect(tile.className).toContain('bg-surface-gray-2')
+	})
+
+	// On the ruled canvas a bare centred paragraph reads as a page that failed
+	// to render. The SIEM outlines an empty region instead (ui/empty.tsx, as
+	// the Sigma marketplace uses it: `border border-dashed border-border/60
+	// bg-card/50`), so the emptiness is visibly a container and not a gap.
+	it('outlines the empty region rather than leaving it bare', () => {
+		const panel = mountEmpty().get('[class*="absolute"]')
+
+		expect(panel.classes()).toContain('border')
+		expect(panel.classes()).toContain('border-dashed')
 	})
 
 	it('steps the type down on a phone rather than up', () => {

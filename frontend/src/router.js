@@ -3,7 +3,7 @@ import { call } from 'frappe-ui'
 import { usersStore } from './stores/user'
 import { sessionStore } from './stores/session'
 import { useSettings } from './stores/settings'
-import { getLmsBasePath } from './utils/basePath'
+import { getLmsHistoryBase } from './utils/basePath'
 import { routes } from './routes'
 
 // Run the fresh-site-admin persona check at most once per app load.
@@ -25,7 +25,7 @@ async function shouldCapturePersona() {
 }
 
 let router = createRouter({
-	history: createWebHistory(`/${getLmsBasePath()}`),
+	history: createWebHistory(getLmsHistoryBase()),
 	routes,
 })
 

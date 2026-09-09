@@ -31,9 +31,15 @@
 						</template>
 					</Button>
 				</div>
+				<!-- The SIEM groups a page's search and filters into one bordered
+					 bar rather than letting them float loose above the results
+					 (soc/FilterBar.tsx: `rounded-xl border border-border bg-card/60
+					 p-2`). The bar is small and hugs its controls — deliberately not
+					 a panel around the whole list, which on an empty or short page
+					 is a viewport-tall empty box. -->
 				<div
 					v-if="$slots.filters && !isMobile"
-					class="flex flex-wrap items-center gap-3 [&>*]:w-full sm:[&>*]:w-44"
+					class="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-4 border border-outline-gray-2 bg-surface-base/60 px-3 py-2.5 [&>*]:w-full sm:[&>*]:w-44"
 				>
 					<slot name="filters" />
 				</div>

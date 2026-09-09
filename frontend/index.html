@@ -23,8 +23,11 @@
 					preference !== 'system'
 				) {
 					var legacy = localStorage.getItem('theme')
+					/* 'dark' is the default for a visitor with nothing stored, matching
+					   Jutsu SIEM's `defaultTheme="dark"`. Keep in step with
+					   src/utils/theme.ts. */
 					preference =
-						legacy === 'dark' || legacy === 'light' ? legacy : 'system'
+						legacy === 'dark' || legacy === 'light' ? legacy : 'dark'
 				}
 				document.documentElement.setAttribute(
 					'data-theme',
@@ -42,10 +45,16 @@
 		<link rel="manifest" href="/api/method/lms.lms.api.get_pwa_manifest" />
 		<link rel="apple-touch-icon" href="public/manifest/apple-icon-180.png" />
 		<meta name="mobile-web-app-capable" content="yes" />
-		<meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)" />
-		<meta name="theme-color" content="#0F0F0F" media="(prefers-color-scheme: dark)" />
-		<meta name="apple-mobile-web-app-status-bar-style" content="default" />
-		<meta name="msapplication-navbutton-color" content="#ffffff" />
+		<!-- The Jutsu canvas (`--background` in src/styles/jutsuTokens.css), which
+		     paints the browser and OS chrome around the page. One tag, not a
+		     prefers-color-scheme pair: the app's theme is a stored preference that
+		     defaults to dark, so it no longer tracks the OS and a media-keyed pair
+		     would show the wrong colour to anyone whose choice differs from their
+		     system. src/utils/theme.ts rewrites this on every paint; the value
+		     here is the default theme's, for the frames before the bundle runs. -->
+		<meta name="theme-color" content="#070B16" />
+		<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+		<meta name="msapplication-navbutton-color" content="#070B16" />
 		<link
 			rel="apple-touch-startup-image"
 			href="public/manifest/apple-splash-2048-2732.jpg"

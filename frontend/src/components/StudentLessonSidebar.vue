@@ -1,6 +1,6 @@
 <template>
 	<div class="flex flex-col h-full">
-		<div class="bg-surface-gray-1 px-5 py-5 border-b">
+		<div class="border-b px-5 py-5">
 			<div
 				v-if="!hideHeader"
 				class="text-lg-semibold text-ink-gray-9 leading-snug"

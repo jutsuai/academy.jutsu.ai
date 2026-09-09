@@ -1,21 +1,45 @@
 @import 'frappe-ui/style.css';
 @import 'frappe-ui/list-style.css';
+/* Geist Variable — the SIEM's typeface. Loaded before the theme so the
+   `--font-sans` stack in tailwind.config.js has a face to resolve. */
+@import '@fontsource-variable/geist';
+/* The Jutsu SIEM design system, ported onto frappe-ui's variable contract.
+   Tokens re-colour and re-shape every frappe-ui component; chrome supplies the
+   ruled canvas, the translucent header/rail, and the SIEM's surface classes.
+   Both must follow frappe-ui's own imports — they redefine its variables. */
+@import './styles/jutsuTokens.css';
+@import './styles/jutsuChrome.css';
+@import './styles/jutsuControls.css';
 @import './styles/blockEditor.css';
 
-/* Nothing has ever painted the document. frappe-ui's style.css declares the
-   theme variables but sets no background on html or body, so the canvas stayed
-   the user agent's white no matter what `data-theme` said. Light mode hid that
-   for free — white is exactly what --surface-base resolves to there — and dark
-   mode showed white through every region no element happens to cover: the
-   MobileLayout <main> (the one app main with no bg-surface-base of its own),
-   the overscroll gutter, and any page shorter than the viewport. Painting the
-   document is the fix rather than putting a background on one more <main>,
-   because a <main> cannot cover the regions that have no element at all.
+/* The document's own paint. frappe-ui's style.css declares the theme variables
+   but sets no background on html or body, so the canvas stayed the user agent's
+   white no matter what `data-theme` said. Light mode hid that for free — white
+   is exactly what --surface-base resolved to there — and dark mode showed white
+   through every region no element happens to cover: the MobileLayout <main> (the
+   one app main with no surface of its own), the overscroll gutter, and any page
+   shorter than the viewport. Painting the document is the fix rather than
+   putting a background on one more <main>, because a <main> cannot cover the
+   regions that have no element at all. Precedent: helpdesk/desk/src/index.css
+   styles `html, body` from the same token set.
+
+   What it paints is Jutsu's ruled canvas: a 20px grid over `--surface-canvas`,
+   the page plane that cards (`--surface-base`) sit ON. The SIEM puts this on
+   <body>; it stays on <html> here for the reason above. Painting from
+   `--surface-canvas` rather than `--surface-base` is what separates page from
+   card, which is the whole basis of the SIEM's sense of depth.
+
    color-scheme travels with it so scrollbars and native controls follow the
-   chosen theme instead of the OS's. Precedent: helpdesk/desk/src/index.css
-   styles `html, body` from the same token set. */
+   chosen theme instead of the OS's. */
 html {
-	background-color: var(--surface-base);
+	background-color: var(--surface-canvas);
+	background-image: linear-gradient(
+			to right,
+			var(--grid-line) 1px,
+			transparent 1px
+		),
+		linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px);
+	background-size: var(--grid-size) var(--grid-size);
 	color-scheme: light;
 }
 
@@ -49,12 +73,21 @@ svg.lucide {
    Tailwind class cannot be read back out of CSS, so the number has to live
    here rather than in the @apply. */
 :root {
-	--header-frame-h: 3rem;
+	/* 3.5rem, matching Jutsu's `h-14` app header (jutsu-siem
+	   apps/web/src/components/layout/Header.tsx). Was 3rem, the desk header's
+	   height, before the theme port. */
+	--header-frame-h: 3.5rem;
 }
 
+/* Jutsu's header is translucent chrome pinned over the scrolling page rather
+   than an opaque band: `surface-chrome` — the canvas at 82% with an 18px blur —
+   so the grid and the page slide visibly underneath it. */
 .header-frame {
-	@apply flex shrink-0 items-center border-b border-outline-gray-1 bg-surface-base px-5;
+	@apply flex shrink-0 items-center border-b px-5;
 	min-height: var(--header-frame-h);
+	background-color: var(--surface-chrome);
+	border-color: color-mix(in oklab, var(--border) 66%, transparent);
+	backdrop-filter: blur(18px) saturate(1.06);
 }
 
 /* #scrollContainer in MobileLayout and NoSidebarLayout, #main-content in
@@ -78,11 +111,11 @@ main#main-content {
 	@apply text-p-base py-0;
 }
 
-/* This build makes --surface-sidebar transparent in dark mode; point it at
-   gray-1 so the sidebar keeps a visible surface. */
+/* styles/jutsuTokens.css gives --surface-sidebar a real dark value (the SIEM's
+   0.195 rail, deliberately BELOW the 0.206 card so the rail reads as recessed),
+   so the gray-1 fallback this used to carry is gone. */
 [data-theme='dark'] {
 	color-scheme: dark;
-	--surface-sidebar: var(--surface-gray-1);
 }
 
 /* frappe-ui beta.7 FormLabel differs from InputLabel; match standalone labels

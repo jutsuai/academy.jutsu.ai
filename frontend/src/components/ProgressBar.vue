@@ -1,11 +1,17 @@
 <template>
 	<Tooltip :text="`${props.progress}%`">
+		<!-- jutsu-siem apps/web/src/components/ui/progress.tsx: a `bg-muted` track
+			 with a `bg-primary` indicator. The fill was `bg-surface-gray-10` —
+			 frappe's solid-button grey, which resolves to near-white in dark mode.
+			 Progress is the app's most-repeated "how far along" signal and the SIEM
+			 paints every one of those in the brand, the same as a checked box or a
+			 switch that is on. -->
 		<div
-			class="w-full bg-surface-gray-3 rounded-full h-1"
+			class="h-1 w-full rounded-full bg-surface-gray-2"
 			:class="$attrs.class"
 		>
 			<div
-				class="bg-surface-gray-10 rounded-full"
+				class="rounded-full bg-brand transition-[width] duration-300"
 				:class="progressBarHeight"
 				:style="{ width: progressBarWidth }"
 			></div>

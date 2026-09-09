@@ -47,8 +47,18 @@ PRIVILEGED_ROLES = {"Moderator", "Course Creator", "Batch Evaluator", "System Ma
 
 
 def get_lms_path():
-	path = frappe.conf.get("lms_path") or "lms"
+	"""The path the SPA is mounted at, without slashes.
+
+	An empty string means the site root — `lms_path: ""` in site_config. The
+	default stays "lms" so an existing deployment's URLs do not move under it.
+	`.get("lms_path")` with an explicit None check rather than `or`, because ""
+	is a meaningful value here and `or` would silently turn it back into "lms".
+	"""
+	path = frappe.conf.get("lms_path")
+	if path is None:
+		path = "lms"
 	return path.strip("/")
+
 
 
 def get_lms_route(path=""):

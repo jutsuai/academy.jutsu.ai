@@ -1,0 +1,405 @@
+/*
+ * Jutsu SIEM design tokens, ported onto frappe-ui's variable contract.
+ *
+ * frappe-ui paints every component from three themed variable families —
+ * `--surface-*`, `--ink-*`, `--outline-*` — plus `--radius-*`, `--elevation-*`
+ * and `--focus-*` (see frappe-ui/tailwind/plugin.js). Every Tailwind class the
+ * LMS writes (`bg-surface-gray-2`, `text-ink-gray-7`, `border-outline-gray-2`,
+ * `rounded-4`) resolves through them. So the whole product can be re-skinned by
+ * redefining the variables rather than by editing ~400 components: this file is
+ * that redefinition, and it is the single source for the Jutsu look.
+ *
+ * What actually changes, versus frappe's defaults:
+ *
+ *   1. Grays gain Jutsu's cool cast. frappe ships pure neutrals (chroma 0);
+ *      Jutsu's whole surface system sits at hue ~264 with chroma 0.002–0.04,
+ *      which is what makes its chrome read as slate rather than as paper.
+ *   2. Blue becomes the Jutsu brand, #00a2f3 = oklch(0.682 0.162 242). It lands
+ *      on `--surface-blue-6`, the step frappe's solid primary button paints
+ *      with, so primaries, links, active nav and focus rings all follow.
+ *   3. Radii step up to Jutsu's `--radius: 0.625rem` scale, so buttons read
+ *      10px and cards 14px instead of 8/12.
+ *   4. Elevation drops frappe's inset-highlight stack for Jutsu's flat
+ *      `shadow-xs`/`shadow-sm` family — cards there are separated by a border,
+ *      not by a glow.
+ *   5. Focus rings become a 3px brand wash (`ring-ring/50` in Jutsu terms).
+ *
+ * Anchor values below are quoted verbatim from jutsu-siem/apps/web/src/styles.css
+ * so the two can be diffed. Ramp steps between the anchors are interpolated.
+ *
+ * The second half of the file republishes the same palette under Jutsu's OWN
+ * names (`--background`, `--card`, `--muted`, `--border`, `--brand`, `--sev-*`)
+ * so components ported from the SIEM keep compiling, and so tailwind.config.js
+ * can expose `bg-card` / `text-muted-foreground` / `border-border` utilities.
+ */
+
+:root {
+	/* ---------------------------------------------------------------- surfaces
+	   base = Jutsu `--card`; the page canvas is `--surface-canvas` below, which
+	   html paints with the grid. gray-2 = `--muted` (the app's hover fill),
+	   gray-3 = `--accent` (its active fill), gray-4 = `--border`, gray-10 =
+	   `--foreground` (solid gray buttons). */
+	--surface-base: oklch(1 0.002 264);
+	--surface-gray-1: oklch(0.979 0.006 264);
+	--surface-gray-2: oklch(0.955 0.012 265);
+	--surface-gray-3: oklch(0.935 0.018 262);
+	--surface-gray-4: oklch(0.905 0.017 264);
+	--surface-gray-5: oklch(0.83 0.025 264);
+	--surface-gray-6: oklch(0.683 0.032 262);
+	--surface-gray-7: oklch(0.586 0.034 261);
+	--surface-gray-8: oklch(0.439 0.036 262);
+	--surface-gray-9: oklch(0.341 0.034 263);
+	--surface-gray-10: oklch(0.195 0.028 265);
+	--surface-sidebar: oklch(0.975 0.006 265);
+	--surface-elevation-1: oklch(1 0.002 264);
+	--surface-elevation-2: oklch(1 0.002 264);
+	--surface-elevation-3: oklch(1 0.002 264);
+
+	/* -------------------------------------------------------------------- ink
+	   gray-5 = `--muted-foreground`, gray-8 = `--secondary-foreground`,
+	   gray-9 = `--foreground`. Those three carry almost all of the LMS's text. */
+	--ink-base: oklch(1 0.002 264);
+	--ink-gray-1: oklch(0.946 0.012 264);
+	--ink-gray-2: oklch(0.913 0.015 264);
+	--ink-gray-3: oklch(0.83 0.025 264);
+	--ink-gray-4: oklch(0.66 0.032 261);
+	--ink-gray-5: oklch(0.48 0.035 260);
+	--ink-gray-6: oklch(0.42 0.036 262);
+	--ink-gray-7: oklch(0.33 0.038 264);
+	--ink-gray-8: oklch(0.255 0.04 265);
+	--ink-gray-9: oklch(0.195 0.028 265);
+
+	/* ---------------------------------------------------------------- outlines
+	   gray-2 and elevation-1/2 are Jutsu's `--border`; they draw nearly every
+	   divider, card edge and input hairline in the app. */
+	--outline-base: oklch(1 0.002 264);
+	--outline-gray-1: oklch(0.938 0.012 265);
+	--outline-gray-2: oklch(0.9 0.015 265);
+	--outline-gray-3: oklch(0.845 0.021 264);
+	--outline-gray-4: oklch(0.72 0.03 263);
+	--outline-gray-5: oklch(0.6 0.034 261);
+	--outline-gray-6: oklch(0.455 0.036 262);
+	--outline-gray-7: oklch(0.355 0.034 263);
+	--outline-gray-8: oklch(0.215 0.03 265);
+	--outline-gray-9: oklch(0.175 0.028 265);
+	--outline-elevation-1: oklch(0.9 0.015 265);
+	--outline-elevation-2: oklch(0.9 0.015 265);
+
+	/* ------------------------------------------------------------------- blue
+	   The brand ramp. Step 6 IS #00a2f3; 7 and 8 darken for hover/active, which
+	   is the direction frappe's Button already assumes. Jutsu itself hovers by
+	   dropping the primary to 80% alpha — same read, but alpha over an unknown
+	   backdrop is not reproducible inside a token ramp. */
+	--surface-blue-1: oklch(0.972 0.019 242);
+	--surface-blue-2: oklch(0.945 0.036 242);
+	--surface-blue-3: oklch(0.905 0.062 242);
+	--surface-blue-4: oklch(0.845 0.094 242);
+	--surface-blue-5: oklch(0.762 0.132 242);
+	--surface-blue-6: oklch(0.682 0.162 242);
+	--surface-blue-7: oklch(0.622 0.152 243);
+	--surface-blue-8: oklch(0.556 0.136 244);
+	--surface-blue-9: oklch(0.468 0.115 245);
+	--surface-blue-10: oklch(0.386 0.094 246);
+
+	--ink-blue-1: oklch(1 0.002 264);
+	--ink-blue-2: oklch(0.945 0.036 242);
+	--ink-blue-3: oklch(0.905 0.062 242);
+	--ink-blue-4: oklch(0.845 0.094 242);
+	--ink-blue-5: oklch(0.682 0.162 242);
+	/* One step below the raw brand. Jutsu links are literally `text-brand`, but
+	   #00a2f3 on white is 3.0:1 — fine for the 24px+ marks the SIEM uses it on,
+	   under AA for the 14px inline links the LMS is full of. 0.585 keeps the
+	   same cyan read at 4.6:1. */
+	--ink-blue-6: oklch(0.585 0.15 243);
+	--ink-blue-7: oklch(0.53 0.135 244);
+	--ink-blue-8: oklch(0.468 0.115 245);
+	--ink-blue-9: oklch(0.408 0.1 246);
+	--ink-blue-10: oklch(0.352 0.088 247);
+	--ink-blue-link: oklch(0.585 0.15 243);
+
+	--outline-blue-1: oklch(0.945 0.036 242);
+	--outline-blue-2: oklch(0.905 0.062 242);
+	--outline-blue-3: oklch(0.845 0.094 242);
+	--outline-blue-4: oklch(0.762 0.132 242);
+	--outline-blue-5: oklch(0.682 0.162 242);
+	--outline-blue-6: oklch(0.622 0.152 243);
+	--outline-blue-7: oklch(0.556 0.136 244);
+	--outline-blue-8: oklch(0.468 0.115 245);
+	--outline-blue-9: oklch(0.386 0.094 246);
+	--outline-blue-10: oklch(0.33 0.082 248);
+
+	/* ----------------------------------------------------------------- radius
+	   Jutsu's `--radius: 0.625rem` and the sm/md/lg/xl/2xl ladder derived from
+	   it. frappe's numeric steps are re-pointed at the nearest Jutsu value —
+	   `rounded` and `rounded-4` (buttons, inputs, menu rows) land on 10px,
+	   `rounded-lg` / `rounded-6` (cards, dialogs) on 14px. */
+	--radius: 0.625rem;
+	--radius-1: 4px;
+	--radius-2: 6px;
+	--radius-3: 8px;
+	--radius-4: 10px;
+	--radius-5: 10px;
+	--radius-6: 14px;
+	--radius-7: 18px;
+	--radius-8: 22px;
+	--radius-sm: 6px;
+	/* `rounded-md` is the LMS's card/panel radius (94 call sites) rather than a
+	   small-control one, so it maps by role onto Jutsu's card family, not onto
+	   Jutsu's like-named 8px step. */
+	--radius-md: 12px;
+	--radius-lg: 14px;
+	--radius-xl: 18px;
+	--radius-2xl: 22px;
+
+	/* -------------------------------------------------------------- elevation
+	   Jutsu separates cards with a border and a barely-there shadow (`shadow-xs`)
+	   and reserves depth for things that actually float. frappe's stack opens
+	   with an inset white highlight on every surface, which on a page of cards
+	   reads as embossing. Same names, Jutsu's weights. */
+	--elevation-sm: 0 1px 2px 0 oklch(0.18 0.04 264 / 0.05);
+	--elevation-base: 0 1px 2px -1px oklch(0.18 0.04 264 / 0.08),
+		0 1px 3px 0 oklch(0.18 0.04 264 / 0.06);
+	--elevation-md: 0 2px 4px -2px oklch(0.18 0.04 264 / 0.08),
+		0 6px 14px -6px oklch(0.18 0.04 264 / 0.12);
+	--elevation-lg: 0 4px 8px -4px oklch(0.18 0.04 264 / 0.08),
+		0 18px 40px -32px oklch(0.18 0.04 264 / 0.16);
+	--elevation-xl: 0 6px 12px -6px oklch(0.18 0.04 264 / 0.1),
+		0 22px 56px -24px oklch(0.18 0.04 264 / 0.16);
+	--elevation-2xl: 0 10px 20px -10px oklch(0.18 0.04 264 / 0.12),
+		0 44px 80px -32px oklch(0.18 0.04 264 / 0.2);
+
+	/* ------------------------------------------------------------------ focus
+	   Jutsu's `focus-visible:ring-3 focus-visible:ring-ring/50`, where `--ring`
+	   is the brand. frappe applies `--focus-outline-default` globally on
+	   :focus-visible, so re-pointing it here brands every focus ring at once. */
+	--focus-default: 0px 0px 0px 3px oklch(0.682 0.162 242 / 0.5);
+	--focus-outline-default: 3px solid oklch(0.682 0.162 242 / 0.5);
+	--focus-blue: 0px 0px 0px 3px oklch(0.682 0.162 242 / 0.5);
+	--focus-outline-blue: 3px solid oklch(0.682 0.162 242 / 0.5);
+	--focus-red: 0px 0px 0px 3px oklch(0.577 0.245 27.325 / 0.24);
+	--focus-outline-red: 3px solid oklch(0.577 0.245 27.325 / 0.24);
+	--focus-green: 0px 0px 0px 3px oklch(0.6 0.13 155 / 0.35);
+	--focus-outline-green: 3px solid oklch(0.6 0.13 155 / 0.35);
+	--focus-amber: 0px 0px 0px 3px oklch(0.72 0.12 75 / 0.4);
+	--focus-outline-amber: 3px solid oklch(0.72 0.12 75 / 0.4);
+	--focus-violet: 0px 0px 0px 3px oklch(0.6 0.12 300 / 0.35);
+	--focus-outline-violet: 3px solid oklch(0.6 0.12 300 / 0.35);
+
+	/* =================================================== Jutsu's own token names
+	   Republished so SIEM-shaped markup and the Tailwind aliases in
+	   tailwind.config.js resolve. Values are the anchors quoted above. */
+	--brand: #00a2f3;
+	--brand-foreground: oklch(0.985 0 0);
+	--ring: var(--brand);
+
+	--background: oklch(0.985 0.004 264);
+	--foreground: oklch(0.195 0.028 265);
+	--card: oklch(1 0.002 264);
+	--card-foreground: oklch(0.195 0.028 265);
+	--popover: oklch(1 0.002 264);
+	--popover-foreground: oklch(0.195 0.028 265);
+	--primary: var(--brand);
+	--primary-foreground: oklch(0.985 0 0);
+	--secondary: oklch(0.955 0.012 265);
+	--secondary-foreground: oklch(0.255 0.04 265);
+	--muted: oklch(0.955 0.012 265);
+	--muted-foreground: oklch(0.48 0.035 260);
+	--accent: oklch(0.935 0.018 262);
+	--accent-foreground: oklch(0.255 0.04 265);
+	--destructive: oklch(0.577 0.245 27.325);
+	--destructive-foreground: oklch(0.985 0 0);
+	--border: oklch(0.9 0.015 265);
+	--input: oklch(0.9 0.015 265);
+	--logo-plate: oklch(0.955 0.012 265 / 0.8);
+
+	/* The canvas html paints, distinct from `--surface-base` (the card white).
+	   frappe has no name for "the page behind the cards" because its pages are
+	   white; Jutsu's is a tinted, grid-ruled plane. */
+	--surface-canvas: var(--background);
+
+	--sidebar: oklch(0.975 0.006 265);
+	--sidebar-foreground: oklch(0.195 0.028 265);
+	--sidebar-accent: oklch(0.935 0.018 262);
+	--sidebar-accent-foreground: oklch(0.255 0.04 265);
+	--sidebar-border: oklch(0.9 0.015 265);
+
+	--chart-1: var(--brand);
+	--chart-2: oklch(0.65 0.1 180);
+	--chart-3: oklch(0.7 0.12 70);
+	--chart-4: oklch(0.6 0.12 300);
+	--chart-5: oklch(0.64 0.15 15);
+
+	/* Canonical severity palette (verbatim from the SIEM). */
+	--sev-critical: oklch(0.55 0.2 27);
+	--sev-high: oklch(0.65 0.15 50);
+	--sev-medium: oklch(0.72 0.12 75);
+	--sev-low: oklch(0.62 0.11 200);
+	--sev-info: oklch(0.47 0.04 255);
+	--status-ok: oklch(0.6 0.13 155);
+
+	--grid-size: 20px;
+	--grid-line: oklch(0.195 0.028 265 / 6%);
+
+	/* Layered surfaces — the chrome/rail/panel/floating family. */
+	--surface-panel: oklch(1 0.002 264 / 72%);
+	--surface-floating: oklch(1 0.002 264 / 96%);
+	--surface-chrome: oklch(0.985 0.004 264 / 82%);
+	--surface-rail: oklch(0.975 0.006 265 / 84%);
+	--surface-highlight: oklch(1 0 0 / 72%);
+	--surface-shadow: oklch(0.18 0.04 264 / 16%);
+}
+
+[data-theme='dark'] {
+	/* ---------------------------------------------------------------- surfaces
+	   base = Jutsu `--card` (0.206), lifted well off the 0.152 canvas so a dense
+	   grid of cards reads as cards rather than as one flat plane — that lift is
+	   the note the SIEM's dark mode is built on. */
+	--surface-base: oklch(0.206 0.027 264);
+	--surface-gray-1: oklch(0.239 0.028 264);
+	--surface-gray-2: oklch(0.29 0.0325 260);
+	--surface-gray-3: oklch(0.33 0.035 260);
+	--surface-gray-4: oklch(0.379 0.036 261);
+	--surface-gray-5: oklch(0.457 0.036 260);
+	--surface-gray-6: oklch(0.58 0.036 259);
+	--surface-gray-7: oklch(0.683 0.036 258);
+	--surface-gray-8: oklch(0.754 0.03 256);
+	--surface-gray-9: oklch(0.885 0.015 252);
+	--surface-gray-10: oklch(0.9838 0.0035 247.86);
+	--surface-sidebar: oklch(0.195 0.027 264);
+	--surface-elevation-1: oklch(0.228 0.027 264);
+	--surface-elevation-2: oklch(0.239 0.028 264);
+	--surface-elevation-3: oklch(0.29 0.0325 260);
+
+	--ink-base: oklch(0.206 0.027 264);
+	--ink-gray-1: oklch(0.26 0.03 262);
+	--ink-gray-2: oklch(0.341 0.035 260);
+	--ink-gray-3: oklch(0.42 0.036 260);
+	--ink-gray-4: oklch(0.6 0.036 259);
+	--ink-gray-5: oklch(0.71 0.0355 258);
+	--ink-gray-6: oklch(0.775 0.03 256);
+	--ink-gray-7: oklch(0.86 0.02 252);
+	--ink-gray-8: oklch(0.93 0.01 250);
+	--ink-gray-9: oklch(0.9838 0.0035 247.86);
+
+	--outline-base: oklch(0.206 0.027 264);
+	--outline-gray-1: oklch(0.26 0.03 262);
+	--outline-gray-2: oklch(0.29 0.0325 260);
+	--outline-gray-3: oklch(0.34 0.035 260);
+	--outline-gray-4: oklch(0.42 0.036 260);
+	--outline-gray-5: oklch(0.52 0.036 259);
+	--outline-gray-6: oklch(0.66 0.036 258);
+	--outline-gray-7: oklch(0.86 0.02 252);
+	--outline-gray-8: oklch(0.93 0.01 250);
+	--outline-gray-9: oklch(0.9838 0.0035 247.86);
+	--outline-elevation-1: oklch(0.29 0.0325 260);
+	--outline-elevation-2: oklch(0.29 0.0325 260);
+
+	/* Brand holds at #00a2f3 in both themes — the SIEM never shifts it. Here the
+	   ramp climbs rather than falls, so hover/active read as *brighter* against
+	   the dark canvas. */
+	--surface-blue-1: oklch(0.26 0.055 245);
+	--surface-blue-2: oklch(0.3 0.075 244);
+	--surface-blue-3: oklch(0.345 0.095 244);
+	--surface-blue-4: oklch(0.42 0.115 243);
+	--surface-blue-5: oklch(0.55 0.14 243);
+	--surface-blue-6: oklch(0.682 0.162 242);
+	--surface-blue-7: oklch(0.735 0.14 240);
+	--surface-blue-8: oklch(0.8 0.115 236);
+	--surface-blue-9: oklch(0.87 0.075 234);
+	--surface-blue-10: oklch(0.925 0.045 232);
+
+	--ink-blue-1: oklch(1 0 0);
+	--ink-blue-2: oklch(0.345 0.095 244);
+	--ink-blue-3: oklch(0.42 0.115 243);
+	--ink-blue-4: oklch(0.55 0.14 243);
+	--ink-blue-5: oklch(0.63 0.155 242);
+	--ink-blue-6: oklch(0.72 0.15 240);
+	--ink-blue-7: oklch(0.78 0.125 238);
+	--ink-blue-8: oklch(0.84 0.095 235);
+	--ink-blue-9: oklch(0.89 0.065 233);
+	--ink-blue-10: oklch(0.93 0.04 232);
+	--ink-blue-link: oklch(0.72 0.15 240);
+
+	--outline-blue-1: oklch(0.3 0.075 244);
+	--outline-blue-2: oklch(0.345 0.095 244);
+	--outline-blue-3: oklch(0.42 0.115 243);
+	--outline-blue-4: oklch(0.55 0.14 243);
+	--outline-blue-5: oklch(0.682 0.162 242);
+	--outline-blue-6: oklch(0.735 0.14 240);
+	--outline-blue-7: oklch(0.8 0.115 236);
+	--outline-blue-8: oklch(0.87 0.075 234);
+	--outline-blue-9: oklch(0.925 0.045 232);
+	--outline-blue-10: oklch(0.955 0.03 231);
+
+	/* Depth carries further on a dark canvas, so the same shapes go darker and
+	   wider rather than being reused from light (which frappe does). */
+	--elevation-sm: 0 1px 2px 0 oklch(0.055 0.02 264 / 0.4);
+	--elevation-base: 0 1px 2px -1px oklch(0.055 0.02 264 / 0.5),
+		0 1px 3px 0 oklch(0.055 0.02 264 / 0.4);
+	--elevation-md: 0 2px 4px -2px oklch(0.055 0.02 264 / 0.5),
+		0 6px 14px -6px oklch(0.055 0.02 264 / 0.55);
+	--elevation-lg: 0 4px 8px -4px oklch(0.055 0.02 264 / 0.5),
+		0 18px 40px -24px oklch(0.055 0.02 264 / 0.6);
+	--elevation-xl: 0 6px 12px -6px oklch(0.055 0.02 264 / 0.5),
+		0 22px 56px -24px oklch(0.055 0.02 264 / 0.62);
+	--elevation-2xl: 0 10px 20px -10px oklch(0.055 0.02 264 / 0.55),
+		0 44px 80px -32px oklch(0.055 0.02 264 / 0.66);
+
+	--focus-default: 0px 0px 0px 3px oklch(0.682 0.162 242 / 0.5);
+	--focus-outline-default: 3px solid oklch(0.682 0.162 242 / 0.5);
+	--focus-blue: 0px 0px 0px 3px oklch(0.682 0.162 242 / 0.5);
+	--focus-outline-blue: 3px solid oklch(0.682 0.162 242 / 0.5);
+	--focus-red: 0px 0px 0px 3px oklch(0.704 0.191 22.216 / 0.4);
+	--focus-outline-red: 3px solid oklch(0.704 0.191 22.216 / 0.4);
+	--focus-green: 0px 0px 0px 3px oklch(0.7 0.14 160 / 0.4);
+	--focus-outline-green: 3px solid oklch(0.7 0.14 160 / 0.4);
+	--focus-amber: 0px 0px 0px 3px oklch(0.78 0.12 78 / 0.4);
+	--focus-outline-amber: 3px solid oklch(0.78 0.12 78 / 0.4);
+	--focus-violet: 0px 0px 0px 3px oklch(0.62 0.12 300 / 0.4);
+	--focus-outline-violet: 3px solid oklch(0.62 0.12 300 / 0.4);
+
+	/* ---------------------------------------------------- Jutsu's own names */
+	--background: oklch(0.152 0.0245 264);
+	--foreground: oklch(0.9838 0.0035 247.86);
+	--card: oklch(0.206 0.027 264);
+	--card-foreground: oklch(0.9838 0.0035 247.86);
+	--popover: oklch(0.228 0.027 264);
+	--popover-foreground: oklch(0.9838 0.0035 247.86);
+	--secondary: oklch(0.29 0.0325 260);
+	--secondary-foreground: oklch(0.9838 0.0035 247.86);
+	--muted: oklch(0.29 0.0325 260);
+	--muted-foreground: oklch(0.71 0.0355 258);
+	--accent: oklch(0.3 0.036 260);
+	--accent-foreground: oklch(0.9838 0.0035 247.86);
+	--destructive: oklch(0.704 0.191 22.216);
+	--border: oklch(0.29 0.0325 260);
+	--input: oklch(1 0 0 / 15%);
+	--logo-plate: oklch(1 0 0 / 0.75);
+
+	--sidebar: oklch(0.195 0.027 264);
+	--sidebar-foreground: oklch(0.9838 0.0035 247.86);
+	--sidebar-accent: oklch(0.29 0.0325 260);
+	--sidebar-accent-foreground: oklch(0.9838 0.0035 247.86);
+	--sidebar-border: oklch(1 0 0 / 10%);
+
+	--chart-2: oklch(0.68 0.1 180);
+	--chart-3: oklch(0.72 0.12 70);
+	--chart-4: oklch(0.62 0.12 300);
+	--chart-5: oklch(0.66 0.15 15);
+
+	--sev-critical: oklch(0.63 0.21 25);
+	--sev-high: oklch(0.7 0.15 50);
+	--sev-medium: oklch(0.78 0.12 78);
+	--sev-low: oklch(0.7 0.11 200);
+	--sev-info: oklch(0.62 0.02 255);
+	--status-ok: oklch(0.7 0.14 160);
+
+	--grid-line: oklch(0.6 0.02 260 / 5.5%);
+
+	--surface-panel: oklch(0.22 0.028 264 / 45%);
+	--surface-floating: oklch(0.207 0.027 264 / 96%);
+	--surface-chrome: oklch(0.18 0.027 264 / 76%);
+	--surface-rail: oklch(0.195 0.027 264 / 96%);
+	--surface-highlight: oklch(1 0 0 / 5.5%);
+	--surface-shadow: oklch(0.055 0.02 264 / 48%);
+}

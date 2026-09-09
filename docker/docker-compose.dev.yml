@@ -36,6 +36,8 @@ services:
     command: bash /home/frappe/frappe-bench/apps/lms/docker/init-dev.sh
     environment:
       - SHELL=/bin/bash
+      # The SPA build OOMs at node's default heap; see init-dev.sh.
+      - NODE_OPTIONS=--max-old-space-size=6144
     working_dir: /home/frappe
     volumes:
       # Your checkout, mounted at a real path (not a symlink) because

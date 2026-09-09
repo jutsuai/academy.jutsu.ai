@@ -19,7 +19,7 @@
 
 		<div
 			v-if="isMobile && lessonTotal"
-			class="flex items-center gap-2 border-b bg-surface-base px-5 py-2.5"
+			class="surface-chrome flex items-center gap-2 border-b px-5 py-2.5"
 		>
 			<Button
 				variant="subtle"
@@ -99,7 +99,7 @@
 			<div
 				v-else
 				ref="lessonContainer"
-				class="bg-surface-base min-w-0"
+				class="min-w-0"
 				:class="{
 					'overflow-y-auto': zenModeEnabled,
 				}"

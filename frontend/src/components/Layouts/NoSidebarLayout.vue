@@ -8,7 +8,13 @@
 			{{ __('Skip to main content') }}
 		</a>
 		<div class="h-full flex-1">
-			<div class="flex h-dvh text-base bg-surface-base">
+			<!-- No surface of its own. This layout was deliberately left opaque when
+			     the theme first landed, on the reasoning that a long-form reader
+			     wants a calm sheet rather than a ruled plane — the SIEM does exactly
+			     that for its compliance pages. In this product the opposite reads
+			     better: the lesson view sits beside the course editor, which is on
+			     the canvas, and the two looked like different applications. -->
+			<div class="flex h-dvh text-base">
 				<main
 					class="w-full overflow-auto focus:outline-none"
 					id="scrollContainer"

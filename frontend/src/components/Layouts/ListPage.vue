@@ -36,8 +36,11 @@
 			class="px-5 pb-5"
 		/>
 		<div v-else-if="rows.length && layout === 'grid'" class="px-5 pb-5">
+			<!-- The SIEM's results grid (soc/GridTile.tsx `ITEM_GRID`): four
+				 columns from xl, and a tight gap — tiles are meant to read as one
+				 dense field of results, not as separated posters. -->
 			<div
-				class="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4"
+				class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
 			>
 				<slot
 					v-for="row in rows"

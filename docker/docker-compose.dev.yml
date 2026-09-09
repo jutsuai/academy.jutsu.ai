@@ -1,0 +1,53 @@
+# Dev variant of docker-compose.yml, for customizing LMS.
+#
+# The difference that matters: the host repo is bind-mounted directly onto
+# frappe-bench/apps/lms, so the running app IS your checkout. Upstream's compose file
+# mounts only this docker/ folder and lets init.sh clone LMS afresh from GitHub, which
+# means your theme edits would never show up.
+#
+# Run it from this directory with:
+#   docker compose -f docker-compose.dev.yml up
+#
+# The bench itself (frappe source, python env, node_modules for frappe) lives in the
+# container layer, so `docker compose ... stop` pauses it but `down` discards it and the
+# next `up` rebuilds from scratch (~15 min). Your own work is always safe: it is on the
+# host, in the bind mount.
+
+name: lms-dev
+
+services:
+  mariadb:
+    image: mariadb:10.8
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --skip-character-set-client-handshake
+      - --skip-innodb-read-only-compressed
+    environment:
+      MYSQL_ROOT_PASSWORD: 123
+    volumes:
+      - mariadb-data:/var/lib/mysql
+
+  redis:
+    image: redis:alpine
+
+  frappe:
+    image: frappe/bench:latest
+    command: bash /home/frappe/frappe-bench/apps/lms/docker/init-dev.sh
+    environment:
+      - SHELL=/bin/bash
+    working_dir: /home/frappe
+    volumes:
+      # Your checkout, mounted at a real path (not a symlink) because
+      # frontend/package.json's `link:../../frappe/ui` only resolves from apps/lms/frontend.
+      - ..:/home/frappe/frappe-bench/apps/lms
+    ports:
+      - 8000:8000   # frappe web server
+      - 8080:8080   # vite dev server, for `yarn dev` hot reload
+      - 9000:9000   # socketio
+    depends_on:
+      - mariadb
+      - redis
+
+volumes:
+  mariadb-data:

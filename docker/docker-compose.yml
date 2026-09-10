@@ -18,7 +18,7 @@ services:
 
   frappe:
     image: frappe/bench:latest
-    command: bash /workspace/init.sh
+    command: bash /home/frappe/frappe-bench/apps/lms/docker/init.sh
     environment:
       - SHELL=/bin/bash
       # bench serve binds 127.0.0.1 by default, which the port mapping cannot reach
@@ -27,10 +27,22 @@ services:
       - SITE_NAME=${SITE_NAME:-localhost}
     working_dir: /home/frappe
     volumes:
-      - .:/workspace
+      # The bench itself, so a restart reuses it instead of rebuilding from zero.
+      - bench:/home/frappe/frappe-bench
+      # THIS repo, mounted as the `lms` app. Without it the container ran
+      # `bench get-app lms`, which cloned upstream frappe/lms and ignored your
+      # code entirely. `..` is the repo root: compose resolves relative host
+      # paths against the directory holding this file, which is docker/.
+      - ..:/home/frappe/frappe-bench/apps/lms
+      # node_modules stays a container-side volume rather than landing in your
+      # checkout: it holds platform-specific binaries, and on macOS/Windows a
+      # bind-mounted node_modules is also painfully slow to install into.
+      - frontend-node-modules:/home/frappe/frappe-bench/apps/lms/frontend/node_modules
     ports:
       - 8000:8000
       - 9000:9000
 
 volumes:
   mariadb-data:
+  bench:
+  frontend-node-modules:

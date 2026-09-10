@@ -38,5 +38,7 @@ bench --site lms.localhost install-app lms
 bench --site lms.localhost set-config developer_mode 1
 bench --site lms.localhost clear-cache
 bench use lms.localhost
+# resolve any Host header (localhost, 127.0.0.1, ...) to this site
+bench set-config -g default_site lms.localhost
 
 bench start

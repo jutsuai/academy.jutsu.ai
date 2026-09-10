@@ -21,6 +21,8 @@ services:
     command: bash /workspace/init.sh
     environment:
       - SHELL=/bin/bash
+      # bench serve binds 127.0.0.1 by default, which the port mapping cannot reach
+      - FRAPPE_BIND_ADDR=0.0.0.0
     working_dir: /home/frappe
     volumes:
       - .:/workspace

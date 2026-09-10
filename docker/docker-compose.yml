@@ -23,6 +23,8 @@ services:
       - SHELL=/bin/bash
       # bench serve binds 127.0.0.1 by default, which the port mapping cannot reach
       - FRAPPE_BIND_ADDR=0.0.0.0
+      # site name; override in Dokploy to match your domain
+      - SITE_NAME=${SITE_NAME:-localhost}
     working_dir: /home/frappe
     volumes:
       - .:/workspace

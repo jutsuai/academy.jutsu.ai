@@ -1,5 +1,9 @@
 #!bin/bash
 
+# Site name. Override via env (compose / Dokploy). Defaults to `localhost` so
+# http://localhost:8000 works with no custom hostname.
+SITE_NAME="${SITE_NAME:-localhost}"
+
 if [ -d "/home/frappe/frappe-bench/apps/frappe" ]; then
     echo "Bench already exists, skipping init"
     cd frappe-bench
@@ -27,18 +31,18 @@ sed -i '/watch/d' ./Procfile
 bench get-app payments
 bench get-app lms
 
-bench new-site lms.localhost \
+bench new-site "$SITE_NAME" \
 --force \
 --mariadb-root-password 123 \
 --admin-password admin \
 --no-mariadb-socket
 
-bench --site lms.localhost install-app payments
-bench --site lms.localhost install-app lms
-bench --site lms.localhost set-config developer_mode 1
-bench --site lms.localhost clear-cache
-bench use lms.localhost
+bench --site "$SITE_NAME" install-app payments
+bench --site "$SITE_NAME" install-app lms
+bench --site "$SITE_NAME" set-config developer_mode 1
+bench --site "$SITE_NAME" clear-cache
+bench use "$SITE_NAME"
 # resolve any Host header (localhost, 127.0.0.1, ...) to this site
-bench set-config -g default_site lms.localhost
+bench set-config -g default_site "$SITE_NAME"
 
 bench start

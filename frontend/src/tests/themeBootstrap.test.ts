@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import postcss from 'postcss'
-import colors from '../../node_modules/frappe-ui/tailwind/generated/colors.json'
+import { oklchToHex, resolveValue, themeVariables } from './themeTokens'
 
 // The bug this guards: the document is painted from --surface-base, and that
 // only resolves dark once <html data-theme="dark"> exists. Until this branch
@@ -17,26 +17,11 @@ import colors from '../../node_modules/frappe-ui/tailwind/generated/colors.json'
 // script that resolves the wrong value, or one placed after the stylesheet. So
 // this suite runs the real bootstrap and then resolves the colour the document
 // would actually be painted: it reads the background declaration out of
-// index.css and substitutes the theme variable with the hex frappe-ui's own
-// token data gives it under whichever theme the bootstrap chose.
+// index.css and substitutes the theme variable with the value the app's own
+// theme source (src/styles/jutsuTokens.css) gives it under whichever theme the
+// bootstrap chose.
 
 const ROOT = resolve(__dirname, '../..')
-
-const themeVariables = (theme: 'light' | 'dark'): Record<string, string> => {
-	const themed = (colors as any).themedVariables[theme]
-	const out: Record<string, string> = {}
-	for (const [group, tokens] of Object.entries(
-		themed as Record<string, Record<string, string>>
-	)) {
-		for (const [name, reference] of Object.entries(tokens)) {
-			const resolved = reference
-				.split('/')
-				.reduce<any>((node, key) => (node == null ? node : node[key]), colors)
-			if (typeof resolved === 'string') out[`--${group}-${name}`] = resolved
-		}
-	}
-	return out
-}
 
 const documentBackground = (): string => {
 	const css = readFileSync(resolve(ROOT, 'src/index.css'), 'utf8')
@@ -54,13 +39,20 @@ const documentBackground = (): string => {
 	return value
 }
 
-// The colour the browser would paint the canvas under a given data-theme. An
-// absent attribute is `null` — the untreated first-paint state.
+// The colour the browser would paint the canvas under a given data-theme, as
+// hex. An absent attribute is `null` — the untreated first-paint state, which
+// resolves light because the light values live on bare `:root`.
 const paintedDocument = (theme: string | null): string =>
-	documentBackground().replace(
-		/var\((--[\w-]+)\)/g,
-		(_, name) => themeVariables(theme === 'dark' ? 'dark' : 'light')[name]
+	oklchToHex(
+		resolveValue(
+			documentBackground(),
+			themeVariables(theme === 'dark' ? 'dark' : 'light')
+		)
 	)
+
+// Jutsu's canvas, per theme (`--background` in styles/jutsuTokens.css).
+const LIGHT_CANVAS = '#f9fafd'
+const DARK_CANVAS = '#070b16'
 
 const html = readFileSync(resolve(ROOT, 'index.html'), 'utf8')
 
@@ -131,15 +123,20 @@ afterEach(() => {
 })
 
 describe('the theme applied before first paint', () => {
-	it('leaves the document white when nothing sets data-theme', () => {
-		expect(paintedDocument(null)).toBe('#ffffff')
+	it('leaves the document on the light canvas when nothing sets data-theme', () => {
+		expect(paintedDocument(null)).toBe(LIGHT_CANVAS)
 	})
 
-	it('paints the canvas dark for a dark visitor with no stored preference', () => {
-		const theme = runBootstrap({ stored: {}, systemDark: true })
+	// Dark regardless of the OS: the stored preference now defaults to 'dark'
+	// (Jutsu SIEM's own default), so a light-system visitor with nothing stored
+	// gets dark too — which is what makes this the interesting case.
+	it('paints the canvas dark for a visitor with no stored preference', () => {
+		for (const systemDark of [true, false]) {
+			const theme = runBootstrap({ stored: {}, systemDark })
 
-		expect(theme).toBe('dark')
-		expect(paintedDocument(theme)).toBe('#171717')
+			expect(theme).toBe('dark')
+			expect(paintedDocument(theme)).toBe(DARK_CANVAS)
+		}
 	})
 
 	it('honours an explicit dark choice made on a light system', () => {
@@ -149,7 +146,7 @@ describe('the theme applied before first paint', () => {
 		})
 
 		expect(theme).toBe('dark')
-		expect(paintedDocument(theme)).toBe('#171717')
+		expect(paintedDocument(theme)).toBe(DARK_CANVAS)
 	})
 
 	it('honours an explicit light choice made on a dark system', () => {
@@ -159,14 +156,24 @@ describe('the theme applied before first paint', () => {
 		})
 
 		expect(theme).toBe('light')
-		expect(paintedDocument(theme)).toBe('#ffffff')
+		expect(paintedDocument(theme)).toBe(LIGHT_CANVAS)
 	})
 
 	it('carries over the legacy single-key choice of an existing user', () => {
 		const theme = runBootstrap({ stored: { theme: 'dark' }, systemDark: false })
 
 		expect(theme).toBe('dark')
-		expect(paintedDocument(theme)).toBe('#171717')
+		expect(paintedDocument(theme)).toBe(DARK_CANVAS)
+	})
+
+	// The upgrade path the default change could quietly break: a user who was on
+	// light before the default flipped keeps light, rather than being pulled to
+	// dark by the new fallback.
+	it('leaves an existing light user on light after the default flips to dark', () => {
+		const theme = runBootstrap({ stored: { theme: 'light' }, systemDark: true })
+
+		expect(theme).toBe('light')
+		expect(paintedDocument(theme)).toBe(LIGHT_CANVAS)
 	})
 
 	// The rules are stated twice — once inline, once in the composable — because

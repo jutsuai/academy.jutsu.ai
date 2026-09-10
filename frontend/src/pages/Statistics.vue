@@ -8,46 +8,27 @@
 			<LoadingIndicator class="size-5 text-ink-gray-5" />
 		</div>
 		<div v-else-if="chartDetails.data" class="p-5">
-			<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-				<Tooltip :text="__('Published Courses')">
-					<NumberChart
-						class="border rounded-md"
-						:config="{ title: 'Courses', value: chartDetails.data.courses }"
-					/>
-				</Tooltip>
-				<Tooltip :text="__('Active Members')">
-					<NumberChart
-						class="border rounded-md"
-						:config="{ title: 'Signups', value: chartDetails.data.users }"
-					/>
-				</Tooltip>
-				<Tooltip :text="__('Course Enrollments')">
-					<NumberChart
-						class="border rounded-md"
-						:config="{
-							title: 'Enrollments',
-							value: chartDetails.data.enrollments,
-						}"
-					/>
-				</Tooltip>
-				<Tooltip :text="__('Course Completions')">
-					<NumberChart
-						class="border rounded-md"
-						:config="{
-							title: 'Completions',
-							value: chartDetails.data.completions,
-						}"
-					/>
-				</Tooltip>
-				<Tooltip :text="__('Certified Members')">
-					<NumberChart
-						class="border rounded-md"
-						:config="{
-							title: 'Certifications',
-							value: chartDetails.data.certifications,
-						}"
-					/>
-				</Tooltip>
+			<!-- jutsu-siem apps/web/src/components/soc/KpiCard.tsx, as the SIEM's
+				 Dashboard, Alerts and Assets pages all open. frappe-ui's
+				 NumberChart in a bare `border rounded-md` gave five identical grey
+				 boxes; the tinted icon chip and the 7% wash are what let a reader
+				 tell them apart at a glance, and are the whole reason the SIEM's
+				 dashboards read the way they do. Tones follow the app's own
+				 semantics: signups and enrolments are neutral counts, completions
+				 and certifications are outcomes. -->
+			<div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-5">
+				<JKpiCard
+					v-for="kpi in kpis"
+					:key="kpi.label"
+					:label="kpi.label"
+					:value="kpi.value"
+					:hint="kpi.hint"
+					:tone="kpi.tone"
+				>
+					<template #icon>
+						<span :class="[kpi.icon, 'size-4.5']" />
+					</template>
+				</JKpiCard>
 			</div>
 			<div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
 				<div class="border rounded-md min-h-72">
@@ -140,12 +121,11 @@ import {
 	createResource,
 	DonutChart,
 	LoadingIndicator,
-	NumberChart,
-	Tooltip,
 	usePageMeta,
 } from 'frappe-ui'
 import { computed } from 'vue'
 import PageHeader from '@/components/Layouts/PageHeader.vue'
+import { JKpiCard } from '@/components/jutsu'
 import { sessionStore } from '../stores/session'
 
 const { brand } = sessionStore()
@@ -165,6 +145,51 @@ const chartDetails = createResource({
 	url: 'lms.lms.api.get_chart_details',
 	cache: ['statistics'],
 	auto: true,
+})
+
+// The five headline counts, as SIEM KPI tiles. `hint` carries the phrasing the
+// old Tooltip did — a tooltip is the wrong place for a label the reader needs
+// in order to know what the number counts, and on a touch screen there is no
+// hover to reveal it at all.
+const kpis = computed(() => {
+	const d = chartDetails.data ?? {}
+	return [
+		{
+			label: __('Courses'),
+			value: d.courses,
+			hint: __('Published'),
+			tone: 'brand',
+			icon: 'lucide-book-open',
+		},
+		{
+			label: __('Signups'),
+			value: d.users,
+			hint: __('Active members'),
+			tone: 'default',
+			icon: 'lucide-user-plus',
+		},
+		{
+			label: __('Enrollments'),
+			value: d.enrollments,
+			hint: __('Across all courses'),
+			tone: 'default',
+			icon: 'lucide-users',
+		},
+		{
+			label: __('Completions'),
+			value: d.completions,
+			hint: __('Courses finished'),
+			tone: 'success',
+			icon: 'lucide-circle-check',
+		},
+		{
+			label: __('Certifications'),
+			value: d.certifications,
+			hint: __('Certified members'),
+			tone: 'success',
+			icon: 'lucide-award',
+		},
+	]
 })
 
 const signupsChart = createResource({

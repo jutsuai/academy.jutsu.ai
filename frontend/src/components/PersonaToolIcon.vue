@@ -1,8 +1,13 @@
 <template>
-	<!-- Uniform white tile behind every mark so transparent logos stay visible
-	     in dark mode (literal white on purpose; it must not flip with theme). -->
+	<!-- Uniform light tile behind every mark so transparent logos stay visible in
+	     dark mode: a logo is normally a dark shape on a transparent canvas, so a
+	     plate that followed the theme would hide exactly the marks it exists to
+	     reveal. Light in BOTH themes, deliberately — but `bg-logo-plate`, Jutsu's
+	     token for this, rather than a literal white: it carries an alpha, so the
+	     surface underneath still tints it and it reads as a plate rather than as
+	     a hole punched in a dark card. -->
 	<span
-		class="inline-flex size-4 shrink-0 items-center justify-center rounded-[3px] bg-white"
+		class="inline-flex size-4 shrink-0 items-center justify-center rounded-[3px] bg-logo-plate"
 		aria-hidden="true"
 	>
 		<img

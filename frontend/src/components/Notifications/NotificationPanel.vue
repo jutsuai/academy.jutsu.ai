@@ -132,8 +132,13 @@ const emptyDescription = computed(() =>
 		: __('Notifications you have read will appear here.')
 )
 
+// Where the sidebar ends, so the panel starts flush against it instead of on
+// top of it. These have to match AppSidebar.vue's own widths exactly:
+// `w-14` (3.5rem) collapsed, `w-64` (16rem) expanded. The expanded value used to
+// say 14rem, which is `w-56` -- the width the sidebar had before it grew -- so
+// the panel opened 32px inside the sidebar and covered its right edge.
 const sidebarLeft = computed(() =>
-	sidebarStore.isSidebarCollapsed ? '3.5rem' : '14rem'
+	sidebarStore.isSidebarCollapsed ? '3.5rem' : '16rem'
 )
 
 const hasUnread = computed(() => notifications.data?.some((n) => !n.read))

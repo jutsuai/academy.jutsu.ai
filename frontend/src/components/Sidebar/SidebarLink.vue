@@ -2,15 +2,18 @@
 	<button
 		v-if="link && !link.onlyMobile"
 		:data-notifications-trigger="link.panel === 'notifications' ? '' : null"
-		class="flex w-full h-7 cursor-pointer items-center rounded text-ink-gray-8 duration-300 ease-in-out focus:outline-none focus:transition-none focus-visible:rounded focus-visible:ring-2 focus-visible:ring-outline-gray-3"
+		:data-active="isActive"
+		class="jutsu-nav-item flex w-full cursor-pointer items-center rounded-4 text-ink-gray-8 transition-colors duration-200 ease-out focus:outline-none focus-visible:focus-ring-blue"
 		:class="
-			isActive ? 'bg-surface-elevation-3 shadow-sm' : 'hover:bg-surface-gray-2'
+			isActive
+				? 'bg-brand/10 font-medium text-brand ring-1 ring-inset ring-brand/20 hover:bg-brand/[0.15]'
+				: 'hover:bg-surface-gray-2/70 hover:text-ink-gray-9'
 		"
 		@click="handleClick"
 	>
 		<div
-			class="flex items-center w-full duration-300 ease-in-out group"
-			:class="isCollapsed ? 'p-1 relative' : 'px-2 py-1'"
+			class="group flex h-11 w-full items-center gap-2 duration-200 ease-out"
+			:class="isCollapsed ? 'relative justify-center gap-0 p-1' : 'px-3'"
 		>
 			<Tooltip
 				:text="__(link.label)"
@@ -18,10 +21,11 @@
 				:disabled="!isCollapsed"
 			>
 				<slot name="icon">
-					<span class="grid h-5 w-6 flex-shrink-0 place-items-center">
+					<span class="grid size-5 flex-shrink-0 place-items-center">
 						<component
 							:is="typeof link.icon === 'string' ? icons[link.icon] : link.icon"
-							class="h-4 w-4 stroke-1.5 text-ink-gray-8"
+							class="size-5 stroke-1.5"
+							:class="isActive ? 'text-brand' : 'text-ink-gray-6'"
 						/>
 					</span>
 				</slot>
@@ -33,11 +37,11 @@
 				:hoverDelay="1.5"
 			>
 				<span
-					class="min-w-0 truncate text-p-sm duration-300 ease-in-out"
+					class="min-w-0 truncate text-p-base duration-200 ease-out"
 					:class="
 						isCollapsed
 							? 'ms-0 w-0 overflow-hidden opacity-0'
-							: 'ms-2 w-auto opacity-100'
+							: 'w-auto opacity-100'
 					"
 				>
 					{{ __(link.label) }}

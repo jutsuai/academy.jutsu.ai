@@ -132,7 +132,7 @@
 		<template #tab-body-editor>
 			<div
 				v-if="isMobile && editorSelected"
-				class="flex items-center gap-2 border-b bg-surface-base px-5 py-2.5"
+				class="surface-chrome flex items-center gap-2 border-b px-5 py-2.5"
 			>
 				<Button
 					variant="subtle"
@@ -192,7 +192,7 @@
 			>
 				<div class="w-[70%]" />
 				<div
-					class="pointer-events-auto flex w-[30%] items-center justify-between gap-x-2 border-s border-b bg-surface-base p-1 px-5"
+					class="surface-chrome pointer-events-auto flex w-[30%] items-center justify-between gap-x-2 border-s border-b p-1 px-5"
 				>
 					<div class="py-2.5 text-p-base-medium text-ink-gray-9">
 						{{ __('Chapters') }}

@@ -1,54 +1,37 @@
 <template>
-	<div
-		class="flex flex-col border hover:border-outline-gray-3 rounded-md p-4 h-full"
-		style="min-height: 150px"
-	>
-		<div class="text-lg-semibold leading-5 mb-2 text-ink-gray-9">
-			{{ batch.title }}
-		</div>
-		<Badge
-			v-if="batch.seat_count && batch.seats_left > 0"
-			variant="subtle"
-			theme="green"
-			size="md"
-			class="self-start"
-			:label="
-				batch.seats_left +
-				' ' +
-				(batch.seats_left > 1 ? __('Seats Left') : __('Seat Left'))
-			"
-		/>
-		<Badge
-			v-else-if="batch.seat_count && batch.seats_left <= 0"
-			variant="subtle"
-			theme="red"
-			size="md"
-			class="self-start"
-			:label="__('Sold Out')"
-		/>
-		<div class="short-introduction text-sm text-ink-gray-7">
+	<JGridTile>
+		<JGridTileHeading>
+			<JGridTileTitle>{{ batch.title }}</JGridTileTitle>
+			<template v-if="batch.seat_count" #trailing>
+				<Badge
+					variant="subtle"
+					:theme="batch.seats_left > 0 ? 'green' : 'red'"
+					size="sm"
+					:label="
+						batch.seats_left > 0
+							? batch.seats_left +
+							  ' ' +
+							  (batch.seats_left > 1 ? __('Seats Left') : __('Seat Left'))
+							: __('Sold Out')
+					"
+				/>
+			</template>
+		</JGridTileHeading>
+
+		<JGridTileDescription v-if="batch.description">
 			{{ batch.description }}
-		</div>
-		<div v-if="batch.amount" class="font-semibold text-ink-gray-9 mb-4">
-			{{ batch.price }}
-		</div>
-		<div class="flex flex-col space-y-2 mt-auto">
-			<DateRange
-				:startDate="batch.start_date"
-				:endDate="batch.end_date"
-				class="text-sm text-ink-gray-7"
-			/>
-			<div class="flex items-center text-sm text-ink-gray-7">
-				<span class="lucide-clock h-4 w-4 me-2 text-ink-gray-7" />
+		</JGridTileDescription>
+
+		<div class="flex flex-col gap-1 text-p-sm text-ink-gray-6">
+			<DateRange :startDate="batch.start_date" :endDate="batch.end_date" />
+			<div class="flex items-center gap-1.5">
+				<span class="lucide-clock size-3.5 shrink-0" aria-hidden="true" />
 				<span dir="ltr">
 					{{ formatTime(batch.start_time) }} - {{ formatTime(batch.end_time) }}
 				</span>
 			</div>
-			<div
-				v-if="batch.timezone"
-				class="flex items-center text-sm text-ink-gray-7"
-			>
-				<span class="lucide-globe h-4 w-4 me-2 text-ink-gray-5" />
+			<div v-if="batch.timezone" class="flex items-center gap-1.5">
+				<span class="lucide-globe size-3.5 shrink-0" aria-hidden="true" />
 				<span>
 					{{
 						formatTimezone(
@@ -59,10 +42,8 @@
 				</span>
 			</div>
 		</div>
-		<div
-			v-if="batch.instructors?.length"
-			class="flex avatar-group overlap mt-4"
-		>
+
+		<div v-if="batch.instructors?.length" class="flex items-center">
 			<div
 				class="h-6 me-1"
 				:class="{ 'avatar-group overlap': batch.instructors.length > 1 }"
@@ -75,15 +56,42 @@
 			</div>
 			<CourseInstructors :instructors="batch.instructors" />
 		</div>
-	</div>
+
+		<JGridTileMeta>
+			<JGridTileChip v-if="batch.category">{{ batch.category }}</JGridTileChip>
+			<template v-if="batch.amount" #end>
+				<span class="text-p-xs-medium text-ink-gray-7">{{ batch.price }}</span>
+			</template>
+		</JGridTileMeta>
+	</JGridTile>
 </template>
 <script setup>
+/**
+ * The batch card, on the same tile as CourseCard — see that file's note for why
+ * the catalogue moved onto jutsu-siem's soc/GridTile.tsx.
+ *
+ * This one had drifted further than the course card: a 150px floor, a `text-lg`
+ * title, its own copy of `.short-introduction` (an unscoped global, so it also
+ * reached whatever else happened to use the class), and a seat badge stacked
+ * under the title rather than set beside it. The seat count is a status, so it
+ * sits where the SIEM puts a status — the heading's trailing slot — and the
+ * price moves to the meta rule's end, where a tile's one right-aligned fact
+ * goes.
+ */
 import { Badge } from 'frappe-ui'
 import { formatTime } from '@/utils'
 import { formatTimezone, nextOccurrence } from '@/utils/timezone'
 import DateRange from '@/components/Common/DateRange.vue'
 import CourseInstructors from '@/components/CourseInstructors.vue'
 import UserAvatar from '@/components/UserAvatar.vue'
+import {
+	JGridTile,
+	JGridTileChip,
+	JGridTileDescription,
+	JGridTileHeading,
+	JGridTileMeta,
+	JGridTileTitle,
+} from '@/components/jutsu'
 
 const props = defineProps({
 	batch: {
@@ -92,28 +100,3 @@ const props = defineProps({
 	},
 })
 </script>
-<style>
-.short-introduction {
-	display: -webkit-box;
-	-webkit-line-clamp: 2;
-	-webkit-box-orient: vertical;
-	text-overflow: ellipsis;
-	width: 100%;
-	overflow: hidden;
-	margin: 0.25rem 0 1rem;
-	line-height: 1.5;
-}
-
-.avatar-group {
-	display: inline-flex;
-	align-items: center;
-}
-
-.avatar-group .avatar {
-	transition: margin 0.1s ease-in-out;
-}
-
-.avatar-group.overlap .avatar + .avatar {
-	margin-inline-start: calc(-8px);
-}
-</style>

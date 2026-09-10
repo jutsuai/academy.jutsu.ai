@@ -1,10 +1,20 @@
 <template>
 	<div class="relative flex h-full min-h-64 w-full grow justify-center">
+		<!-- jutsu-siem apps/web/src/components/ui/empty.tsx, as the Sigma
+			 marketplace uses it: a dashed panel over the canvas rather than a
+			 loose column of text, with the icon in an `EmptyMedia variant="icon"`
+			 tile (size-8, rounded, muted fill). On a ruled canvas a bare centred
+			 paragraph reads as a page that failed to render; a dashed outline
+			 reads as a container that is deliberately empty. -->
 		<div
-			class="absolute inset-x-0 top-1/3 mx-auto flex w-full flex-col items-center gap-3 px-6 sm:top-[35%] sm:px-4"
+			class="absolute inset-x-0 top-1/4 mx-auto flex w-full flex-col items-center gap-4 rounded-md border border-dashed border-outline-gray-2 bg-surface-base/50 p-6 text-center sm:top-[30%]"
 			:class="widthClass"
 		>
-			<span class="size-10 text-ink-gray-5 sm:size-7.5" :class="icon" />
+			<span
+				class="grid size-8 shrink-0 place-items-center rounded-4 bg-surface-gray-2 text-ink-gray-7"
+			>
+				<span class="size-4" :class="icon" />
+			</span>
 			<div class="flex flex-col items-center gap-1">
 				<span
 					class="text-base-medium text-center text-ink-gray-8 sm:text-lg-medium"

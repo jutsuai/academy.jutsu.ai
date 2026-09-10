@@ -300,6 +300,23 @@ describe('PageBody', () => {
 		expect(classes).toContain('border-b')
 		expect(classes).toContain('sm:border-b-0')
 	})
+
+	// A list page sits ON the canvas; it is not wrapped in a panel of its own.
+	// A bordered box around the whole body stretches to the viewport whatever is
+	// in it, so an empty or short list renders as a large empty rectangle with a
+	// few words floating in the middle of it. The filter bar carries the only
+	// container on the page, and it hugs its controls.
+	it('draws no panel around the body', async () => {
+		mobile.value = false
+		const wrapper = await mountListPage({ title: 'All Courses' })
+		const framed = wrapper
+			.findAll('*')
+			.filter((node: any) =>
+				node.classes().some((c: string) => c === 'sm:rounded-md')
+			)
+
+		expect(framed).toHaveLength(0)
+	})
 })
 
 describe('ToggleFilter', () => {

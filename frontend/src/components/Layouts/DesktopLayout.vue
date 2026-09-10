@@ -7,13 +7,20 @@
 		>
 			{{ __('Skip to main content') }}
 		</a>
-		<div class="h-full border-e bg-surface-sidebar">
+		<!-- `jutsu-rail` (styles/jutsuChrome.css) is the SIEM's blurred sidebar
+		     plane. It lives on this wrapper rather than on AppSidebar so the
+		     material is declared once; AppSidebar's own root is transparent. -->
+		<div class="h-full border-e jutsu-rail">
 			<AppSidebar />
 		</div>
+		<!-- No surface of its own: the page canvas is the ruled plane painted on
+		     <html> (see index.css), and cards sit on top of it. Painting
+		     `bg-surface-base` here would put the card white back over the grid and
+		     flatten the page/card separation the whole theme is built on. -->
 		<main
 			id="main-content"
 			tabindex="-1"
-			class="flex-1 flex flex-col h-full overflow-auto bg-surface-base focus:outline-none"
+			class="flex-1 flex flex-col h-full overflow-auto focus:outline-none"
 		>
 			<slot />
 		</main>

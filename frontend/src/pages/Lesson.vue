@@ -19,7 +19,7 @@
 
 		<div
 			v-if="isMobile && lessonTotal"
-			class="flex items-center gap-2 border-b bg-surface-base px-5 py-2.5"
+			class="surface-chrome flex items-center gap-2 border-b px-5 py-2.5"
 		>
 			<Button
 				variant="subtle"
@@ -99,7 +99,7 @@
 			<div
 				v-else
 				ref="lessonContainer"
-				class="bg-surface-base min-w-0"
+				class="min-w-0"
 				:class="{
 					'overflow-y-auto': zenModeEnabled,
 				}"
@@ -110,7 +110,13 @@
 						'w-full md:w-3/5 mx-auto border-none !pt-10': zenModeEnabled,
 					}"
 				>
-					<div class="px-5">
+					<!-- Reading measure. The editor insets its body by sm:mx-10 sm:px-20
+					     (LessonForm.vue:3) and that gutter is most of why a lesson reads
+					     comfortably there; this side had px-5 alone, so the same lesson ran
+					     roughly 120px wider per line. Padding rather than the editor's
+					     margin+padding pair, because the discussions block below shares this
+					     inset and its border-t has to keep spanning the full column. -->
+					<div class="px-5 sm:px-20">
 						<div
 							class="flex flex-col space-y-3 md:space-y-0 md:flex-row md:items-center justify-between"
 						>
@@ -290,7 +296,7 @@
 					</div>
 					<div
 						v-if="lesson.data && (allowDiscussions || tabs.length > 1)"
-						class="mt-10 pb-20 pt-5 border-t px-5"
+						class="mt-10 pb-20 pt-5 border-t px-5 sm:px-20"
 						ref="discussionsContainer"
 					>
 						<TabButtons

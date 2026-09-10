@@ -13,6 +13,12 @@ export type ThemePreference = Theme | 'system'
 const PREFERENCE_KEY = 'themePreference'
 const RESOLVED_KEY = 'theme'
 
+// The theme a visitor with nothing stored gets. Dark, because the product this
+// theme is ported from is dark by default. Keep in step with the inline
+// bootstrap in index.html — src/tests/themeBootstrap.test.ts asserts the two
+// resolve identically for every input.
+const DEFAULT_PREFERENCE: ThemePreference = 'dark'
+
 const prefersDark = (): boolean =>
 	typeof window !== 'undefined' &&
 	typeof window.matchMedia === 'function' &&
@@ -25,9 +31,14 @@ const storedPreference = (): ThemePreference => {
 	}
 	// No preference key yet: inherit whatever the old single-key setup resolved
 	// to, so an existing user's choice survives the upgrade rather than snapping
-	// to system on first load after deploy.
+	// to the default on first load after deploy.
 	const legacy = localStorage.getItem(RESOLVED_KEY)
-	return legacy === 'dark' || legacy === 'light' ? legacy : 'system'
+	if (legacy === 'dark' || legacy === 'light') return legacy
+	// Nothing stored at all: dark, matching Jutsu SIEM, whose ThemeProvider is
+	// mounted `defaultTheme="dark"` (jutsu-siem apps/web/src/main.tsx) and so
+	// opens dark regardless of the OS setting. 'system' remains selectable — this
+	// is the default, not the only option.
+	return DEFAULT_PREFERENCE
 }
 
 const resolve = (preference: ThemePreference): Theme =>
@@ -36,8 +47,24 @@ const resolve = (preference: ThemePreference): Theme =>
 const themePreference = ref<ThemePreference>(storedPreference())
 const theme = ref<Theme>(resolve(themePreference.value))
 
+// The canvas each theme paints the document with — `--background` from
+// styles/jutsuTokens.css, resolved to hex. `theme-color` takes a colour, not a
+// variable, so this is the one place the value has to be restated; keep it in
+// step with that file.
+const CANVAS: Record<Theme, string> = {
+	light: '#F9FAFD',
+	dark: '#070B16',
+}
+
 const paint = (resolved: Theme): void => {
 	document.documentElement.setAttribute('data-theme', resolved)
+	// Browser and OS chrome (Android's status bar, Safari's toolbar tint) read
+	// this, and it cannot be keyed off `data-theme` from CSS — so it is repainted
+	// here rather than declared once in index.html, which would leave the chrome
+	// showing the default theme's colour after the user switches.
+	document
+		.querySelector('meta[name="theme-color"]')
+		?.setAttribute('content', CANVAS[resolved])
 	localStorage.setItem(RESOLVED_KEY, resolved)
 	theme.value = resolved
 }

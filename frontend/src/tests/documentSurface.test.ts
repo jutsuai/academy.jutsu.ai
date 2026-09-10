@@ -2,9 +2,16 @@ import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import postcss from 'postcss'
-// frappe-ui's own token export, so the expected colours come from the same
-// source the stylesheet is generated from rather than being restated here.
-import colors from '../../node_modules/frappe-ui/tailwind/generated/colors.json'
+// The app's own theme source, so the expected colours come from the file that
+// actually ships rather than from frappe-ui's defaults, which the Jutsu port
+// overrides. See src/tests/themeTokens.ts.
+import {
+	contrastRatio,
+	oklchToHex,
+	relativeLuminance,
+	resolveValue,
+	themeVariables,
+} from './themeTokens'
 
 // The bug this guards: nothing painted the document. frappe-ui declares the
 // theme variables but sets no background on html or body, and every app layout
@@ -23,23 +30,6 @@ import colors from '../../node_modules/frappe-ui/tailwind/generated/colors.json'
 // overscroll gutter, short pages, and the next unpainted layout white.
 
 const ROOT = resolve(__dirname, '../..')
-
-const themeVariables = (theme: 'light' | 'dark'): Record<string, string> => {
-	const themed = (colors as any).themedVariables[theme]
-	const out: Record<string, string> = {}
-	for (const [group, tokens] of Object.entries(
-		themed as Record<string, Record<string, string>>
-	)) {
-		for (const [name, reference] of Object.entries(tokens)) {
-			// References look like "darkMode/gray/950" or "neutral/white".
-			const resolved = reference
-				.split('/')
-				.reduce<any>((node, key) => (node == null ? node : node[key]), colors)
-			if (typeof resolved === 'string') out[`--${group}-${name}`] = resolved
-		}
-	}
-	return out
-}
 
 // Walks index.css for a rule that paints the document element, and returns its
 // background-color value. `html`, `:root` and `body` all paint the canvas.
@@ -73,12 +63,7 @@ const documentColorScheme = (selector: string): string | undefined => {
 const resolveColour = (
 	value: string,
 	variables: Record<string, string>
-): string => value.replace(/var\((--[\w-]+)\)/g, (_, name) => variables[name])
-
-const luma = (hex: string): number => {
-	const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16))
-	return 0.2126 * r + 0.7152 * g + 0.0722 * b
-}
+): string => resolveValue(value, variables)
 
 describe('the document surface follows the chosen theme', () => {
 	it('paints the document from a theme variable, not a fixed colour', () => {
@@ -88,15 +73,23 @@ describe('the document surface follows the chosen theme', () => {
 		expect(background).toMatch(/^var\(--[\w-]+\)$/)
 	})
 
-	it('resolves to white in light mode and near-black in dark mode', () => {
+	it('resolves to the near-white canvas in light mode and a near-black one in dark', () => {
 		const background = documentBackground() as string
 
 		const light = resolveColour(background, themeVariables('light'))
 		const dark = resolveColour(background, themeVariables('dark'))
 
-		expect(light).toBe('#ffffff')
-		expect(dark).toBe('#171717')
-		expect(luma(dark)).toBeLessThan(60)
+		// Jutsu's `--background`: a faintly cool near-white page plane that the
+		// card white (`--surface-base`) sits ON, and its dark counterpart.
+		expect(oklchToHex(light)).toBe('#f9fafd')
+		expect(oklchToHex(dark)).toBe('#070b16')
+		// Still the property that matters, independent of the exact value.
+		expect(relativeLuminance(dark)).toBeLessThan(0.05)
+		// The canvas has to stay distinguishable from the cards on it, or the
+		// whole page flattens into one surface.
+		expect(
+			resolveColour('var(--surface-base)', themeVariables('dark'))
+		).not.toBe(dark)
 	})
 
 	// The ink the app writes on that surface is near-white in dark mode, so a
@@ -105,16 +98,11 @@ describe('the document surface follows the chosen theme', () => {
 		const dark = themeVariables('dark')
 		const background = resolveColour(documentBackground() as string, dark)
 
-		const relative = (hex: string): number => {
-			const channels = [1, 3, 5]
-				.map((i) => parseInt(hex.slice(i, i + 2), 16) / 255)
-				.map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4))
-			return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2]
-		}
-		const ink = dark['--ink-gray-9']
-		const contrast = (relative(ink) + 0.05) / (relative(background) + 0.05)
-
-		expect(contrast).toBeGreaterThan(4.5)
+		// The heading ink, and the secondary ink that carries most of the app's
+		// body copy — the canvas has to clear AA against both, since content sits
+		// directly on it wherever no card intervenes.
+		expect(contrastRatio(dark['--ink-gray-9'], background)).toBeGreaterThan(4.5)
+		expect(contrastRatio(dark['--ink-gray-5'], background)).toBeGreaterThan(4.5)
 	})
 
 	// Without this the browser keeps drawing scrollbars, form controls and the

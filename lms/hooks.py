@@ -30,7 +30,39 @@ def get_lms_path():
 # app_include_js = "/assets/lms/js/lms.js"
 
 # include js, css files in header of web template
-# web_include_css = "/assets/lms/css/lms.css"
+# The Jutsu theme for Frappe's own server-rendered pages — login, sign-up,
+# forgot-password, the website shell. Those pages are rendered by Frappe's
+# website bundle, not by the SPA, so nothing the app imports reaches them and
+# /login stayed light while the rest of the product went dark. They do use the
+# same espresso token names, so re-declaring the variables carries the theme
+# across. Generated from the app's own token file — see
+# frontend/scripts/build-web-theme.mjs; `yarn build` regenerates it.
+def _jutsu_web_css():
+	"""The web theme's URL, carrying a content hash as a cache buster.
+
+	The file is a plain static asset under `public/`, not a Frappe bundle, so
+	nothing appends a version to it and a browser would hold the first copy it
+	ever fetched — which is exactly what happened while this was being built:
+	the file on disk was correct and the page kept rendering the old one.
+	Hashing the contents means the URL changes only when the theme does.
+
+	Falls back to the bare path if the file cannot be read, so a missing or
+	unreadable theme degrades to "no cache busting" rather than to a broken
+	<link> or an exception during hook evaluation.
+	"""
+	import hashlib
+	import os
+
+	path = os.path.join(os.path.dirname(__file__), "public", "css", "jutsu-web.css")
+	try:
+		with open(path, "rb") as handle:
+			digest = hashlib.sha1(handle.read()).hexdigest()[:10]
+	except OSError:
+		return "/assets/lms/css/jutsu-web.css"
+	return f"/assets/lms/css/jutsu-web.css?v={digest}"
+
+
+web_include_css = [_jutsu_web_css()]
 web_include_js = []
 
 # include custom scss in every website theme (without file extension ".scss")

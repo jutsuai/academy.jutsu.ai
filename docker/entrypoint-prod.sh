@@ -12,6 +12,19 @@
 
 set -eo pipefail
 
+# `set -e` on its own gives a PaaS nothing to show. Dokploy's deploy log prints
+# the orchestrator's view -- 'service "configurator" didn't complete
+# successfully: exit 1' -- and the reason stays inside the container, which the
+# UI does not surface once a failed one-shot is gone. Name the failing line and
+# dump the environment we can safely show, so the log is worth reading.
+trap 'rc=$?; if [ $rc -ne 0 ]; then
+    echo "!!! FAILED at line $LINENO: ${BASH_COMMAND}" >&2
+    echo "!!! exit=$rc  role=${1:-?}  site=${SITE_NAME:-unset}" >&2
+    echo "!!! db=${DB_HOST:-?}:${DB_PORT:-?} user=${DB_ROOT_USER:-?}" >&2
+    echo "!!! disk:" >&2; df -h /home/frappe 2>&1 | tail -2 >&2
+    echo "!!! free:" >&2; free -m 2>/dev/null | head -2 >&2 || true
+fi' EXIT
+
 BENCH_DIR=/home/frappe/frappe-bench
 cd "$BENCH_DIR"
 

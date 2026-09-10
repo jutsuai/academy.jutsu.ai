@@ -36,7 +36,6 @@
 <script setup>
 import { computed, inject, ref } from 'vue'
 import { createListResource, getCachedListResource, toast } from 'frappe-ui'
-import { useOnboarding } from 'frappe-ui/frappe'
 import { useRoute, useRouter } from 'vue-router'
 import Link from '@/components/Controls/Link.vue'
 import FormShell from '@/components/FormShell.vue'
@@ -56,7 +55,6 @@ const user = inject('$user')
 const route = useRoute()
 const router = useRouter()
 const readOnlyMode = window.read_only_mode
-const { updateOnboardingStep } = useOnboarding('learning')
 
 const course = ref(null)
 const evaluator = ref(null)
@@ -119,9 +117,6 @@ const submit = () => {
 		},
 		{
 			onSuccess() {
-				if (user.data?.is_system_manager) {
-					updateOnboardingStep('add_batch_course')
-				}
 				reloadBatchCourses()
 				toast.success(__('Course added to batch successfully'))
 				saveAndReplace(

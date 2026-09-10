@@ -149,11 +149,6 @@
 				"
 				:isSidebarCollapsed="sidebarStore.isSidebarCollapsed"
 			/>
-			<GettingStartedBanner
-				v-if="showOnboarding && !isOnboardingStepsCompleted"
-				:isSidebarCollapsed="sidebarStore.isSidebarCollapsed"
-				appName="learning"
-			/>
 
 			<div
 				class="flex items-center mt-4"
@@ -192,22 +187,6 @@
 							@click="redirectToAppointmentScreen()"
 						>
 							<span class="lucide-phone size-4" aria-hidden="true" />
-						</button>
-					</Tooltip>
-					<Tooltip v-if="showOnboarding" :text="__('Help')">
-						<button
-							type="button"
-							:aria-label="__('Help')"
-							:aria-expanded="showHelpModal"
-							class="grid size-7 shrink-0 place-items-center rounded-3 text-ink-gray-6 transition-colors hover:bg-surface-gray-2 hover:text-ink-gray-9 focus:outline-none focus-visible:focus-ring-blue"
-							@click="
-								() => {
-									showHelpModal = minimize ? true : !showHelpModal
-									minimize = !showHelpModal
-								}
-							"
-						>
-							<span class="lucide-circle-help size-4" aria-hidden="true" />
 						</button>
 					</Tooltip>
 					<Tooltip :text="__('Powered by Frappe Learning')">
@@ -249,24 +228,6 @@
 				</Tooltip>
 			</div>
 		</div>
-		<HelpModal
-			data-testid="onboarding-help-modal"
-			v-if="showOnboarding && showHelpModal"
-			v-model="showHelpModal"
-			v-model:articles="articles"
-			appName="learning"
-			title="Frappe Learning"
-			:logo="LMSLogo"
-			:afterSkip="(step) => capture('onboarding_step_skipped_' + step)"
-			:afterSkipAll="() => capture('onboarding_steps_skipped')"
-			:afterReset="(step) => capture('onboarding_step_reset_' + step)"
-			:afterResetAll="() => capture('onboarding_steps_reset')"
-			docsLink="https://docs.frappe.io/learning"
-		/>
-		<IntermediateStepModal
-			v-model="showIntermediateModal"
-			:currentStep="currentStep"
-		/>
 	</div>
 	<CommandPalette v-model="settingsStore.isCommandPaletteOpen" />
 	<PageModal
@@ -306,16 +267,7 @@ import {
 	Users,
 	BookText,
 } from 'lucide-vue-next'
-import {
-	TrialBanner,
-	HelpModal,
-	GettingStartedBanner,
-	useOnboarding,
-	showHelpModal,
-	minimize,
-	IntermediateStepModal,
-	useTelemetry,
-} from 'frappe-ui/frappe'
+import { TrialBanner, useTelemetry } from 'frappe-ui/frappe'
 import InviteIcon from '@/components/Icons/InviteIcon.vue'
 import UserDropdown from '@/components/Sidebar/UserDropdown.vue'
 import CollapseSidebar from '@/components/Icons/CollapseSidebar.vue'
@@ -345,22 +297,10 @@ const {
 	loadSidebarSettings,
 } = useSettings()
 const settingsStore = useSettings()
-const showOnboarding = ref(false)
-const showIntermediateModal = ref(false)
-const currentStep = ref({})
 const router = useRouter()
-let onboardingDetails
-let isOnboardingStepsCompleted = false
 const readOnlyMode = window.read_only_mode
 const isRtl = document.documentElement.dir === 'rtl'
-const iconProps = {
-	strokeWidth: 1.5,
-	width: 16,
-	height: 16,
-}
-
 onMounted(() => {
-	setUpOnboarding()
 	addKeyboardShortcut()
 	updateSidebarLinks()
 	loadUnreadCount()
@@ -447,231 +387,12 @@ const toggleWebPages = () => {
 	)
 }
 
-const getFirstCourse = async () => {
-	let firstCourse = localStorage.getItem('firstCourse')
-	if (firstCourse) return firstCourse
-	return await call('lms.lms.onboarding.get_first_course')
-}
-
-const getFirstBatch = async () => {
-	let firstBatch = localStorage.getItem('firstBatch')
-	if (firstBatch) return firstBatch
-	return await call('lms.lms.onboarding.get_first_batch')
-}
-
-const steps = reactive([
-	{
-		name: 'create_first_course',
-		title: __('Create your first course'),
-		icon: markRaw(h(BookOpen, iconProps)),
-		completed: false,
-		onClick: () => {
-			minimize.value = true
-			router.push({
-				name: 'Courses',
-			})
-		},
-	},
-	{
-		name: 'create_first_chapter',
-		title: __('Add your first chapter'),
-		icon: markRaw(h(FolderTree, iconProps)),
-		completed: false,
-		dependsOn: 'create_first_course',
-		onClick: async () => {
-			minimize.value = true
-			let course = await getFirstCourse()
-			if (course) {
-				router.push({
-					name: 'CourseDetail',
-					params: { courseName: course },
-					hash: '#settings',
-				})
-			} else {
-				openFormRoute(router, { name: 'NewCourse' })
-			}
-		},
-	},
-	{
-		name: 'create_first_lesson',
-		title: __('Add your first lesson'),
-		icon: markRaw(h(FileText, iconProps)),
-		completed: false,
-		dependsOn: 'create_first_chapter',
-		onClick: async () => {
-			minimize.value = true
-			let course = await getFirstCourse()
-			if (course) {
-				router.push({
-					name: 'CourseDetail',
-					params: { courseName: course },
-					hash: '#settings',
-				})
-			} else {
-				openFormRoute(router, { name: 'NewCourse' })
-			}
-		},
-	},
-	{
-		name: 'create_first_quiz',
-		title: __('Create your first quiz'),
-		icon: markRaw(h(CircleHelp, iconProps)),
-		completed: false,
-		dependsOn: 'create_first_course',
-		onClick: () => {
-			minimize.value = true
-			router.push({ name: 'Quizzes' })
-		},
-	},
-	{
-		name: 'invite_students',
-		title: __('Invite your team and students'),
-		icon: markRaw(h(InviteIcon, iconProps)),
-		completed: false,
-		onClick: () => {
-			minimize.value = true
-			activeTab.value = 'Members'
-			isSettingsOpen.value = true
-		},
-	},
-	{
-		name: 'create_first_batch',
-		title: __('Create your first batch'),
-		icon: markRaw(h(Users, iconProps)),
-		completed: false,
-		onClick: () => {
-			minimize.value = true
-			router.push({ name: 'Batches' })
-		},
-	},
-	{
-		name: 'add_batch_student',
-		title: __('Add students to your batch'),
-		icon: markRaw(h(UserPlus, iconProps)),
-		completed: false,
-		dependsOn: 'create_first_batch',
-		onClick: async () => {
-			minimize.value = true
-			let batch = await getFirstBatch()
-			if (batch) {
-				router.push({
-					name: 'BatchDetail',
-					params: {
-						batchName: batch,
-					},
-				})
-			} else {
-				router.push({ name: 'Batches' })
-			}
-		},
-	},
-	{
-		name: 'add_batch_course',
-		title: __('Add courses to your batch'),
-		icon: markRaw(h(BookText, iconProps)),
-		completed: false,
-		dependsOn: 'create_first_batch',
-		onClick: async () => {
-			minimize.value = true
-			let batch = await getFirstBatch()
-			if (batch) {
-				router.push({
-					name: 'BatchDetail',
-					params: {
-						batchName: batch,
-					},
-					hash: '#courses',
-				})
-			} else {
-				router.push({ name: 'Batches' })
-			}
-		},
-	},
-])
-
-const articles = ref([
-	{
-		title: __('Introduction'),
-		opened: false,
-		subArticles: [
-			{ name: 'introduction', title: __('Introduction') },
-			{ name: 'setting-up', title: __('Setting up') },
-		],
-	},
-	{
-		title: __('Creating a course'),
-		opened: false,
-		subArticles: [
-			{ name: 'create-a-course', title: __('Create a course') },
-			{ name: 'add-a-chapter', title: __('Add a chapter') },
-			{ name: 'add-a-lesson', title: __('Add a lesson') },
-		],
-	},
-	{
-		title: __('Creating a batch'),
-		opened: false,
-		subArticles: [
-			{ name: 'create-a-batch', title: __('Create a batch') },
-			{ name: 'create-a-live-class', title: __('Create a live class') },
-		],
-	},
-	{
-		title: __('Learning Paths'),
-		opened: false,
-		subArticles: [{ name: 'add-a-program', title: __('Add a program') }],
-	},
-	{
-		title: __('Assessments'),
-		opened: false,
-		subArticles: [
-			{ name: 'quizzes', title: __('Quizzes') },
-			{ name: 'assignments', title: __('Assignments') },
-		],
-	},
-	{
-		title: __('Certification'),
-		opened: false,
-		subArticles: [
-			{ name: 'issue-a-certificate', title: __('Issue a Certificate') },
-			{
-				name: 'custom-certificate-templates',
-				title: __('Custom Certificate Templates'),
-			},
-		],
-	},
-	{
-		title: __('Monetization'),
-		opened: false,
-		subArticles: [
-			{
-				name: 'setting-up-payment-gateway',
-				title: __('Setting up payment gateway'),
-			},
-		],
-	},
-	{
-		title: __('Settings'),
-		opened: false,
-		subArticles: [{ name: 'roles', title: __('Roles') }],
-	},
-])
-
-const setUpOnboarding = () => {
-	if (userResource.data?.is_system_manager) {
-		onboardingDetails = useOnboarding('learning')
-		onboardingDetails.setUp(steps)
-		isOnboardingStepsCompleted = onboardingDetails.isOnboardingStepsCompleted
-		showOnboarding.value = true
-	}
-}
-
 watch(userResource, async () => {
 	await userResource.promise
 	if (userResource.data) {
 		isModerator.value = userResource.data.is_moderator
 		isInstructor.value = userResource.data.is_instructor
 		await programs.reload()
-		setUpOnboarding()
 	}
 	updateSidebarLinks()
 })

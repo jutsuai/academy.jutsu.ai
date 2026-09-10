@@ -77,7 +77,6 @@ vi.mock('frappe-ui', () => ({
 
 vi.mock('frappe-ui/frappe', () => ({
 	useTelemetry: () => ({ capture: vi.fn() }),
-	useOnboarding: () => ({ updateOnboardingStep: vi.fn() }),
 }))
 
 vi.mock('@/components/Controls/BooleanSwitch.vue', () => ({

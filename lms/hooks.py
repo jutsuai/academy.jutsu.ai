@@ -299,6 +299,14 @@ website_route_rules = (
 # root they would point each URL at itself, so only the genuine rename survives.
 website_redirects = [
 	{"source": "/update-profile", "target": "/edit-profile"},
+	# `home_page` above is the *template* name, and Frappe hands that same string
+	# to the browser after login (frappe/www/login.py, via get_home_page()), so
+	# signing in lands on the literal URL /_lms. That is an internal name no one
+	# should see, and at the root it is not even where the app lives. Sending it
+	# to the mount point covers both shapes: "/" at the root, "/lms" under a
+	# prefix. Requesting "/" does not match this rule -- redirects are matched on
+	# the request path, not on the template it resolves to -- so there is no loop.
+	{"source": "_lms", "target": f"/{get_lms_path()}"},
 ] + ([] if is_lms_at_root() else [
 	{"source": "/courses", "target": f"/{get_lms_path()}/courses"},
 	{
@@ -318,7 +326,6 @@ website_redirects = [
 		"match_with_query_string": True,
 	},
 	{"source": "/statistics", "target": f"/{get_lms_path()}/statistics"},
-	{"source": "_lms", "target": f"/{get_lms_path()}"},
 ])
 
 update_website_context = [

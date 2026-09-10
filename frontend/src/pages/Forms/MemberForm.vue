@@ -80,7 +80,7 @@
 <script setup lang="ts">
 import { call, createResource, FormControl, toast } from 'frappe-ui'
 import { computed, inject, onMounted, reactive, ref, watch } from 'vue'
-import { useOnboarding, useTelemetry } from 'frappe-ui/frappe'
+import { useTelemetry } from 'frappe-ui/frappe'
 import BooleanSwitch from '@/components/Controls/BooleanSwitch.vue'
 import FormShell from '@/components/FormShell.vue'
 import HeaderButton from '@/components/HeaderButton.vue'
@@ -95,7 +95,6 @@ const props = defineProps<{ memberID: string }>()
 
 const user = inject<SessionUser>('$user')!
 const { capture } = useTelemetry()
-const { updateOnboardingStep } = useOnboarding('learning')
 
 // House style for a route that serves both create and edit
 // (`/job-opening/:jobName/edit`, JobForm.vue:147-149).
@@ -230,7 +229,6 @@ const addMember = async () => {
 
 		await assignRoles(created.name)
 
-		if (user.data?.is_system_manager) updateOnboardingStep('invite_students')
 		capture('user_added')
 		toast.success(__('Member added successfully'))
 		reloadMembers()

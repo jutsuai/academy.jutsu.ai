@@ -30,8 +30,75 @@ function assertFrameworkUiLinked(frontend) {
 		`@framework/ui at ${link} does not lead anywhere.\n` +
 			"package.json's `link:../../frappe/ui` only resolves from apps/lms/frontend.\n" +
 			'Repair it with:\n  ln -sfn <path to apps/frappe/ui> ' +
-			link
+			link,
 	)
+}
+
+/**
+ * Supplies `window.lms_path` to the dev server.
+ *
+ * In production Frappe renders index.html as a Jinja template and writes the boot
+ * values onto `window` from lms/www/_lms.py — `lms_path` among them, which is what
+ * src/utils/basePath.js turns into the router's base. Vite serves index.html as a
+ * plain file with no template engine behind it, so in dev that value is simply
+ * absent and basePath falls back to 'lms'. The result is that the app answers on
+ * /lms/... at :8080 while the same site serves it from / at :8000 — the two halves
+ * of one dev environment disagreeing about their own URLs.
+ *
+ * Read from the bench's site config rather than a second env var, so there is one
+ * place that decides this and dev cannot drift from the server it is talking to.
+ * Both are visible here: docker-compose.dev.yml mounts the bench into this
+ * container, and getCommonSiteConfig-style upward traversal is how frappe-ui's own
+ * plugin finds it.
+ *
+ * Silent when it finds nothing — a checkout with no bench beside it still runs,
+ * and falls back to the same 'lms' it always did.
+ */
+function devLmsPath() {
+	return {
+		name: 'lms-dev-lms-path',
+		transformIndexHtml(html, context) {
+			// context.server is set only by the dev server; the production build
+			// gets its value from Jinja and must not be given a second one.
+			if (!context.server) return html
+			const lmsPath = readSiteConfig()?.lms_path
+			if (lmsPath === undefined) return html
+			return html.replace(
+				'</head>',
+				`\t\t<script>window.lms_path = ${JSON.stringify(lmsPath)}</script>\n\t</head>`,
+			)
+		},
+	}
+}
+
+/** The default site's config, found by walking up to the bench root. */
+function readSiteConfig() {
+	let dir = __dirname
+	while (dir !== path.dirname(dir)) {
+		const sites = path.join(dir, 'sites')
+		if (fs.existsSync(sites) && fs.existsSync(path.join(dir, 'apps'))) {
+			try {
+				const common = JSON.parse(
+					fs.readFileSync(
+						path.join(sites, 'common_site_config.json'),
+						'utf8',
+					),
+				)
+				const site = common.default_site
+				if (!site) return undefined
+				return JSON.parse(
+					fs.readFileSync(
+						path.join(sites, site, 'site_config.json'),
+						'utf8',
+					),
+				)
+			} catch {
+				return undefined
+			}
+		}
+		dir = path.dirname(dir)
+	}
+	return undefined
 }
 
 export default defineConfig(async ({ mode }) => {
@@ -53,6 +120,7 @@ export default defineConfig(async ({ mode }) => {
 				},
 			}),
 			vue(),
+			devLmsPath(),
 			VitePWA({
 				registerType: 'autoUpdate',
 				devOptions: {
@@ -174,7 +242,7 @@ async function importFrappeUIPlugin(isDev) {
 		} catch (error) {
 			console.warn(
 				'Local frappe-ui not found, falling back to npm package:',
-				error.message
+				error.message,
 			)
 		}
 	}

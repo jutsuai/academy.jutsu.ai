@@ -142,7 +142,7 @@ import { hasVideoContent } from '@/utils/video'
 import BlockEditor from '@/components/BlockEditor.vue'
 import BottomSheet from '@/components/BottomSheet.vue'
 import { useScreenSize } from '@/utils/composables'
-import { useOnboarding, useTelemetry } from 'frappe-ui/frappe'
+import { useTelemetry } from 'frappe-ui/frappe'
 import {
 	useKeyboardShortcuts,
 	saveShortcut,
@@ -190,7 +190,6 @@ const instructorUploadContext = reactive({
 	fieldname: 'instructor_content',
 })
 const { capture } = useTelemetry()
-const { updateOnboardingStep } = useOnboarding('learning')
 
 const emit = defineEmits(['saved'])
 
@@ -559,9 +558,6 @@ const linkLesson = (lessonName) =>
 		{ lesson: lessonName },
 		{
 			onSuccess() {
-				if (user.data?.is_system_manager)
-					updateOnboardingStep('create_first_lesson')
-
 				capture('lesson_created')
 				toast.success(__('Lesson created successfully'))
 				isDirty.value = false

@@ -44,4 +44,9 @@ def _drop_redundant_batch_index():
 		return
 	if not frappe.db.has_index("tabLMS Batch Enrollment", REDUNDANT_BATCH_INDEX):
 		return
-	frappe.db.sql_ddl("alter table `tabLMS Batch Enrollment` drop index `batch_member_index`")
+	if frappe.db.db_type == "postgres":
+		frappe.db.sql_ddl(f'DROP INDEX IF EXISTS "{REDUNDANT_BATCH_INDEX}"')
+	else:
+		frappe.db.sql_ddl(
+			f"alter table `tabLMS Batch Enrollment` drop index `{REDUNDANT_BATCH_INDEX}`"
+		)

@@ -162,9 +162,41 @@
    colour at 84–96% alpha, so this is the same plane, blurred over the canvas.
    `.surface-rail` above is the SIEM's own class and carries its inset edge;
    this is the LMS's sidebar, which draws its edge with `border-e`. */
+/* The material is painted on a pseudo-element rather than on the rail itself,
+   and that indirection is load-bearing.
+
+   A `backdrop-filter` of anything but `none` makes an element the containing
+   block for its position:fixed descendants. This rail wraps AppSidebar, which
+   renders frappe-ui's HelpModal, whose root is `fixed right-0 w-80 m-5`. With
+   the filter declared here, `right: 0` stopped meaning the viewport and started
+   meaning the rail: the 320px panel resolved to the rail's 257px right edge and
+   ran from -84px to 236px, so the first 84px of every line of its text was cut
+   off the left of the screen.
+
+   Teleporting the panel out of the rail is not the fix. Its root sets no `top`,
+   so it falls back to its static position; moved to the end of the document it
+   landed at y=822 in a 760px viewport, below the fold. It has to stay where it
+   is, which means the rail has to stop being a containing block.
+
+   Same pixels, no containing block: the rail becomes an ordinary box again and
+   the blur moves to ::before. */
 .jutsu-rail {
+	position: relative;
+}
+
+.jutsu-rail::before {
+	content: '';
+	position: absolute;
+	inset: 0;
+	/* Behind the sidebar's own content, in front of the page canvas this is
+	   blurring. Negative-z-index positioned descendants paint after the parent's
+	   background and before its in-flow content, which is exactly the order the
+	   original single declaration produced. The layout ancestor is `isolate`, so
+	   this cannot slip behind anything further out. */
+	z-index: -1;
 	background-color: var(--surface-rail);
 	backdrop-filter: blur(22px) saturate(1.08);
+	pointer-events: none;
 }
 
 /* Jutsu titles run tight (`tracking-tight`); frappe's display sizes ship with

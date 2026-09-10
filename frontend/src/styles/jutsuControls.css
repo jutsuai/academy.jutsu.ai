@@ -231,6 +231,58 @@ input[type='radio'][data-slot='control']:focus-visible {
 	outline: none;
 }
 
+/*
+ * The same two controls, hand-rolled.
+ *
+ * The block above only reaches what frappe-ui renders, because `data-slot` is
+ * frappe-ui's attribute. A plain `<input type="radio">` written by hand — the
+ * quiz's answer options are the LMS's only ones — gets @tailwindcss/forms'
+ * base instead, and that base is hardcoded for a light page:
+ *
+ *   unchecked  background-color: #fff
+ *   checked    background-color: currentColor  (i.e. the element's text colour)
+ *
+ * In dark mode that reads as one solid white disc for OFF, and a second solid
+ * near-white disc for ON, since the call site's `text-ink-gray-9` is what
+ * `currentColor` resolves to. The two states are indistinguishable, so a
+ * selected answer looks exactly like an unselected one.
+ *
+ * Specificity: the plugin writes `input:where([type='radio'])`, and `:where()`
+ * contributes nothing, so its base is (0,0,1) and its `:checked` rule (0,1,1).
+ * `:not([data-slot])` carries this to (0,2,1) / (0,3,1), which also beats the
+ * `text-ink-gray-9` utility (0,1,0) that would otherwise drive the checked fill.
+ */
+
+input[type='checkbox']:not([data-slot]),
+input[type='radio']:not([data-slot]) {
+	width: 1rem;
+	height: 1rem;
+	background-color: var(--surface-base);
+	border-color: var(--outline-gray-3);
+	color: var(--brand);
+}
+
+input[type='checkbox']:not([data-slot]) {
+	border-radius: 4px;
+}
+
+input[type='checkbox']:not([data-slot]):hover:not(:disabled),
+input[type='radio']:not([data-slot]):hover:not(:disabled) {
+	border-color: color-mix(in oklab, var(--brand) 45%, var(--outline-gray-3));
+}
+
+input[type='checkbox']:not([data-slot]):checked,
+input[type='radio']:not([data-slot]):checked {
+	background-color: var(--brand);
+	border-color: var(--brand);
+}
+
+input[type='checkbox']:not([data-slot]):focus-visible,
+input[type='radio']:not([data-slot]):focus-visible {
+	box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
+	outline: none;
+}
+
 /* ==========================================================================
  * Switch
  *

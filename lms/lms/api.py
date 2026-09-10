@@ -753,7 +753,20 @@ def get_certified_participants(
 	if limit_start is not None:
 		start = cint(limit_start)
 	query = get_certification_query(filters)
-	query = query.orderby("issue_date", order=frappe.qb.desc).offset(start).limit(page_length)
+	# Ordered by the aggregate, not by the column name. `orderby("issue_date")`
+	# resolves to the bare `"tabLMS Certificate"."issue_date"`, which is neither
+	# grouped nor aggregated, so PostgreSQL rejects the whole query with
+	# GroupingError -- while get_count_of_certified_members, the same query
+	# WITHOUT the order by, still returns the right number. That is what put
+	# "3 Certified Members" above an empty "No Certified Members Found" list.
+	# MariaDB tolerates the bare column because Frappe runs it without
+	# ONLY_FULL_GROUP_BY, which is why this only shows up on Postgres.
+	Certificate = frappe.qb.DocType("LMS Certificate")
+	query = (
+		query.orderby(fn.Max(Certificate.issue_date), order=frappe.qb.desc)
+		.offset(start)
+		.limit(page_length)
+	)
 	participants = query.run(as_dict=True)
 	for participant in participants:
 		details = get_certified_participant_details(participant.member)
@@ -2803,7 +2816,22 @@ def get_lesson_completion_stats(course: str):
 			fn.Count(CourseProgress.name).as_("completion_count"),
 		)
 		.where(ChapterReference.parent == course)
-		.groupby(LessonReference.lesson)
+		# Every selected column that is not inside an aggregate has to be
+		# grouped: PostgreSQL rejects the whole query otherwise
+		# ("column tabLesson Reference.idx must appear in the GROUP BY clause"),
+		# and MariaDB only lets it pass because Frappe runs without
+		# ONLY_FULL_GROUP_BY. The extra columns do not change the grouping --
+		# each is already constant within one LessonReference.lesson -- so the
+		# rows are the same shape on both engines. Same bug as
+		# get_certified_participants above.
+		.groupby(
+			LessonReference.lesson,
+			LessonReference.idx,
+			ChapterReference.idx,
+			CourseProgress.lesson,
+			Lesson.title,
+			Lesson.name,
+		)
 		.orderby(ChapterReference.idx, LessonReference.idx)
 		.run(as_dict=True)
 	)

@@ -8,48 +8,170 @@
 # Run it from this directory with:
 #   docker compose -f docker-compose.dev.yml up
 #
-# The bench itself (frappe source, python env, node_modules for frappe) lives in the
-# container layer, so `docker compose ... stop` pauses it but `down` discards it and the
-# next `up` rebuilds from scratch (~15 min). Your own work is always safe: it is on the
-# host, in the bind mount.
+# Everything runs here -- database, cache, backend AND the frontend dev server. One
+# `docker compose up` and the whole app is running; nothing has to be installed or
+# started on your machine.
+#
+#   http://localhost:8080   the app, via vite, with hot reload   <- use this one
+#   http://localhost:8000   the same app, prebuilt, plus /login and /app (the desk)
+#
+# The bench (frappe source, python env, node_modules) lives in the `bench` named
+# volume rather than the container layer, so `down` no longer throws it away and only
+# the FIRST `up` pays the ~15 minute build. `down -v` is what starts over. Your own
+# work is always safe either way: it is on the host, in the bind mount.
 
-name: lms-dev
+name: ${COMPOSE_PROJECT_NAME:-lms-dev}
 
 services:
-  mariadb:
-    image: mariadb:10.8
-    command:
-      - --character-set-server=utf8mb4
-      - --collation-server=utf8mb4_unicode_ci
-      - --skip-character-set-client-handshake
-      - --skip-innodb-read-only-compressed
-    environment:
-      MYSQL_ROOT_PASSWORD: 123
-    volumes:
-      - mariadb-data:/var/lib/mysql
+    postgres:
+        image: postgres:${POSTGRES_VERSION:-15.17}
+        environment:
+            POSTGRES_USER: ${POSTGRES_USER:-postgres}
+            POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-123}
+        healthcheck:
+            test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER}"]
+            interval: 5s
+            timeout: 5s
+            retries: 20
+        volumes:
+            - postgres-data:/var/lib/postgresql/data
 
-  redis:
-    image: redis:alpine
+    redis:
+        image: ${REDIS_IMAGE:-redis:alpine}
 
-  frappe:
-    image: frappe/bench:latest
-    command: bash /home/frappe/frappe-bench/apps/lms/docker/init-dev.sh
-    environment:
-      - SHELL=/bin/bash
-      # The SPA build OOMs at node's default heap; see init-dev.sh.
-      - NODE_OPTIONS=--max-old-space-size=6144
-    working_dir: /home/frappe
-    volumes:
-      # Your checkout, mounted at a real path (not a symlink) because
-      # frontend/package.json's `link:../../frappe/ui` only resolves from apps/lms/frontend.
-      - ..:/home/frappe/frappe-bench/apps/lms
-    ports:
-      - 8000:8000   # frappe web server
-      - 8080:8080   # vite dev server, for `yarn dev` hot reload
-      - 9000:9000   # socketio
-    depends_on:
-      - mariadb
-      - redis
+    # A mail server that never delivers anything.
+    #
+    # Frappe sends real email for two flows you cannot get past otherwise:
+    # "Login with Email Link", and the verification message on sign-up. With no
+    # outgoing account configured Frappe does not error -- it silently takes a
+    # fallback branch, so both flows report success and send nothing. mailpit
+    # accepts every message and keeps it in memory, so those links are readable
+    # at http://localhost:8025 instead of arriving nowhere.
+    #
+    # Nothing here can reach the internet: no relay is configured, no
+    # credentials exist, and a message addressed to a real person is held in
+    # the same inbox as everything else. init-dev.sh points the site at it via
+    # site_config (mail_server / mail_port).
+    mailpit:
+        image: ${MAILPIT_IMAGE:-axllent/mailpit:latest}
+        environment:
+            # Dev SMTP with no auth and no TLS, which is what site_config's
+            # disable_mail_smtp_authentication on the Frappe side expects.
+            MP_SMTP_AUTH_ACCEPT_ANY: 1
+            MP_SMTP_AUTH_ALLOW_INSECURE: 1
+            # Held in memory only, so `down` takes the inbox with it.
+            MP_MAX_MESSAGES: 500
+        ports:
+            - ${MAILPIT_UI_PORT:-8025}:8025 # the inbox, in a browser
+        healthcheck:
+            test: ["CMD", "/mailpit", "readyz"]
+            interval: 5s
+            timeout: 5s
+            retries: 20
+
+    frappe:
+        image: ${FRAPPE_BENCH_IMAGE:-frappe/bench:latest}
+        command: bash /home/frappe/frappe-bench/apps/lms/docker/init-dev.sh
+        environment:
+            SHELL: /bin/bash
+            SITE_NAME: ${SITE_NAME:-localhost}
+            SITE_ADMIN_PASSWORD: ${SITE_ADMIN_PASSWORD:-admin}
+            POSTGRES_HOST: postgres
+            POSTGRES_PORT: 5432
+            POSTGRES_USER: ${POSTGRES_USER:-postgres}
+            POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-123}
+            FRAPPE_BRANCH: ${FRAPPE_BRANCH:-develop}
+            PAYMENTS_REPO: ${PAYMENTS_REPO:-https://github.com/frappe/payments}
+            PAYMENTS_BRANCH: ${PAYMENTS_BRANCH:-develop}
+            SOCKETIO_PORT: ${SOCKETIO_PORT:-9000}
+            # Outgoing mail, written into site_config by init-dev.sh's
+            # set_mail(). With SENDGRID_API_KEY set it configures SendGrid's
+            # relay; without it, the mailpit container below. Empty rather than
+            # absent so `${VAR:-}` in the script sees "" and takes the mailpit
+            # branch instead of tripping `set -u`.
+            SENDGRID_API_KEY: ${SENDGRID_API_KEY:-}
+            SENDGRID_HOST: ${SENDGRID_HOST:-smtp.sendgrid.net}
+            SENDGRID_PORT: ${SENDGRID_PORT:-587}
+            FROM_EMAIL: ${FROM_EMAIL:-no-reply@lms.localhost}
+            MAIL_SENDER_NAME: ${MAIL_SENDER_NAME:-Jutsu Academy}
+            MAIL_SERVER: ${MAIL_SERVER:-mailpit}
+            MAIL_PORT: ${MAIL_PORT:-1025}
+            MAILPIT_UI_PORT: ${MAILPIT_UI_PORT:-8025}
+            # The SPA build OOMs at Node's default heap; see init-dev.sh.
+            NODE_OPTIONS: --max-old-space-size=${NODE_MEMORY_MB:-6144}
+        working_dir: /home/frappe
+        # So that a request to http://<site>:8000 from inside this network namespace
+        # resolves back here. vite's proxy rebuilds its target from the browser's Host
+        # header, so visiting the app as `lms.localhost:8080` makes it look for
+        # `lms.localhost:8000` -- a name nothing in here would otherwise answer to.
+        extra_hosts:
+            - "${SITE_NAME:-localhost}:127.0.0.1"
+        volumes:
+            # The bench, kept in a volume so it survives `down` and so the frontend
+            # service can see sites/common_site_config.json and apps/frappe/ui -- both
+            # of which the frontend build reads by walking up from apps/lms/frontend.
+            - bench:/home/frappe/frappe-bench
+            # Your checkout, mounted at a real path (not a symlink) because
+            # frontend/package.json's `link:../../frappe/ui` only resolves from apps/lms/frontend.
+            - ..:/home/frappe/frappe-bench/apps/lms
+            # Container-owned node_modules, deliberately NOT the one in your checkout.
+            # Native binaries (rollup, esbuild) are compiled per platform, so a `yarn
+            # install` on a macOS host and one in this Linux container overwrite each
+            # other's and whichever ran second is the only one that works. Keeping the
+            # container's in a volume lets both exist.
+            - frontend-node-modules:/home/frappe/frappe-bench/apps/lms/frontend/node_modules
+        # The frontend service waits on this. It only passes once init-dev.sh has
+        # finished -- bench init, yarn install, yarn build, bench build -- so by the
+        # time vite starts, node_modules and the @framework/ui link are really there.
+        healthcheck:
+            test:
+                [
+                    "CMD-SHELL",
+                    "curl -fsS http://localhost:8000/api/method/ping >/dev/null || exit 1",
+                ]
+            interval: 15s
+            timeout: 10s
+            # Generous: the first run builds the SPA from scratch. 160 x 15s = 40 min.
+            retries: 160
+            start_period: 60s
+        ports:
+            - ${BACKEND_PORT:-8000}:8000 # frappe web server
+            - ${VITE_PORT:-8080}:8080 # vite dev server, for `yarn dev` hot reload
+            - ${SOCKETIO_PORT:-9000}:${SOCKETIO_PORT:-9000} # socketio
+        depends_on:
+            postgres:
+                condition: service_healthy
+            redis:
+                condition: service_started
+            mailpit:
+                condition: service_started
+
+    # The vite dev server -- the reason a .vue edit shows up in the browser without
+    # rebuilding anything.
+    frontend:
+        image: ${FRAPPE_BENCH_IMAGE:-frappe/bench:latest}
+        command: bash /home/frappe/frappe-bench/apps/lms/docker/init-frontend.sh
+        # Shares the frappe container's network stack rather than getting its own.
+        # That is what makes this work with no code changes: frappe-ui's vite proxy
+        # sends API calls to 127.0.0.1:8000 (frappe-ui/vite/frappeProxy.js), and in
+        # here 127.0.0.1 IS the bench. On a normal compose network it would be this
+        # container's own loopback, where nothing is listening, and every call would
+        # be refused. It also means the ports are published by `frappe` above -- a
+        # service using another's network namespace cannot declare its own.
+        network_mode: "service:frappe"
+        environment:
+            SHELL: /bin/bash
+            NODE_OPTIONS: --max-old-space-size=${NODE_MEMORY_MB:-6144}
+        working_dir: /home/frappe/frappe-bench/apps/lms/frontend
+        volumes:
+            - bench:/home/frappe/frappe-bench
+            - ..:/home/frappe/frappe-bench/apps/lms
+            - frontend-node-modules:/home/frappe/frappe-bench/apps/lms/frontend/node_modules
+        depends_on:
+            frappe:
+                condition: service_healthy
 
 volumes:
-  mariadb-data:
+    postgres-data:
+    bench:
+    frontend-node-modules:

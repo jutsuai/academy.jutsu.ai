@@ -91,6 +91,79 @@ ${dark}
 	color-scheme: dark;
 }
 
+/* Status surfaces.
+ *
+ * Frappe's alert (\`.es-alert\`, website.bundle.css) takes its background from
+ * \`--surface-{green,red,amber,orange}-2\` and its icon from \`--ink-*-6\`. Those
+ * tokens are frappe-ui's, and frappe-ui publishes its dark values behind
+ * \`[data-theme='dark']\` on <html> — an attribute the SPA sets and these
+ * server-rendered pages never do. jutsuTokens.css redefines the blue ramp but
+ * not the other three, so they fell through to the LIGHT definitions while
+ * \`html body\` below had already set the text to near-white \`--ink-gray-9\`.
+ *
+ * The visible result was the sign-up confirmation: "Please ask your
+ * administrator to verify your sign-up" printed in white on #e4faeb, i.e.
+ * invisible, so signing up looked like it had silently done nothing.
+ *
+ * Values are read off the running app, where \`data-theme='dark'\` is set, so
+ * these pages land on the same greens and reds the SPA uses. To refresh them,
+ * read the same custom properties off document.documentElement in the app.
+ */
+:root:root {
+	--surface-green-1: oklch(0.244 0.05 156.367);
+	--surface-green-2: oklch(0.295 0.057 157.43);
+	--surface-green-3: oklch(0.337 0.071 158.636);
+	--surface-red-1: oklch(0.25 0.059 19.081);
+	--surface-red-2: oklch(0.333 0.082 22.544);
+	--surface-red-3: oklch(0.394 0.105 23.193);
+	--surface-amber-1: oklch(0.253 0.049 61.325);
+	--surface-amber-2: oklch(0.303 0.062 60.12);
+	--surface-amber-3: oklch(0.35 0.081 54.632);
+	--surface-orange-1: oklch(0.228 0.041 55.938);
+	--surface-orange-2: oklch(0.258 0.051 54.302);
+	--surface-orange-3: oklch(0.328 0.078 51.431);
+
+	--ink-green-5: oklch(0.506 0.118 155.358);
+	--ink-green-6: oklch(0.536 0.121 157.571);
+	--ink-green-7: oklch(0.607 0.116 158.84);
+	--ink-red-5: oklch(0.507 0.165 25.286);
+	--ink-red-6: oklch(0.547 0.175 25.075);
+	--ink-red-7: oklch(0.639 0.196 24.565);
+	--ink-amber-5: oklch(0.566 0.133 56.68);
+	--ink-amber-6: oklch(0.599 0.141 56.803);
+	--ink-amber-7: oklch(0.638 0.14 62.455);
+	--ink-orange-5: oklch(0.49 0.128 48.564);
+	--ink-orange-6: oklch(0.656 0.171 48.246);
+	--ink-orange-7: oklch(0.669 0.167 50.064);
+}
+
+/* Frappe paints the older Bootstrap-era alert straight onto the element with
+   its own light ramp, so the token block above cannot reach it. The sign-up
+   banner carries both class families at once. */
+.alert-success,
+.alert-info,
+.alert-warning,
+.alert-danger {
+	color: var(--ink-gray-9);
+	border-color: transparent;
+}
+
+.alert-success {
+	background-color: var(--surface-green-2);
+}
+
+.alert-info {
+	background-color: var(--surface-blue-2);
+}
+
+.alert-warning {
+	background-color: var(--surface-amber-2);
+}
+
+.alert-danger {
+	background-color: var(--surface-red-2);
+}
+
 html body,
 html {
 	background-color: var(--surface-canvas);

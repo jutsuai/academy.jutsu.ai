@@ -34,7 +34,6 @@ vi.mock('frappe-ui', () => ({
 }))
 
 vi.mock('frappe-ui/frappe', () => ({
-	useOnboarding: () => ({ updateOnboardingStep: vi.fn() }),
 	useTelemetry: () => ({ capture: vi.fn() }),
 }))
 

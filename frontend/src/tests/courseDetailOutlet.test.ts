@@ -36,7 +36,6 @@ vi.mock('frappe-ui', () => ({
 
 vi.mock('frappe-ui/frappe', () => ({
 	useTelemetry: () => ({ capture: vi.fn() }),
-	useOnboarding: () => ({ updateOnboardingStep: vi.fn() }),
 }))
 
 // `shallow` stubs these at RENDER time, but their modules are still imported at

@@ -143,7 +143,7 @@ import {
 	createResource,
 	toast,
 } from 'frappe-ui'
-import { useOnboarding, useTelemetry } from 'frappe-ui/frappe'
+import { useTelemetry } from 'frappe-ui/frappe'
 import { computed, inject, onMounted, onBeforeUnmount, ref } from 'vue'
 import { createLMSCategory, cleanError } from '@/utils'
 import { sanitizeOnWrite } from '@/utils/sanitizeOnWrite'
@@ -159,7 +159,6 @@ import { InputLabel, useInputLabeling } from '@/components/Form/labeling'
 import { submitResource } from '@/utils/resource'
 
 const { capture } = useTelemetry()
-const { updateOnboardingStep } = useOnboarding('learning')
 const user = inject<any>('$user')
 const showMemberModal = ref(false)
 const { inputId: batchDetailsId, labelId: batchDetailsLabelId } =
@@ -267,11 +266,6 @@ const saveBatch = () => {
 					params: { batchName: data.name },
 					hash: '#settings',
 				})
-				if (user.data?.is_system_manager) {
-					updateOnboardingStep('create_first_batch', true, false, () => {
-						localStorage.setItem('firstBatch', data.name)
-					})
-				}
 			},
 			onError(err: any) {
 				const message = err?.messages?.[0]

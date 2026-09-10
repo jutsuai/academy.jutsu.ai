@@ -1,0 +1,94 @@
+# nginx in front of Frappe.
+#
+# Rendered by the stock nginx:alpine image, which runs envsubst over every
+# /etc/nginx/templates/*.template at start -- so ${SITE_NAME} below comes from
+# the container's environment, not from a build step.
+#
+# Two jobs. Serve the static assets straight off the shared sites volume, so
+# Python never sees a request for a JS bundle. And name the site on every
+# proxied request: Frappe resolves which site a request belongs to from the Host
+# header, which behind a PaaS router is the public domain rather than the site's
+# own name. X-Frappe-Site-Name settles it explicitly and makes the deployment
+# independent of what Dokploy puts in Host.
+
+upstream frappe_backend {
+    server ${BACKEND_HOST}:8000 fail_timeout=0;
+}
+
+upstream frappe_websocket {
+    server ${WEBSOCKET_HOST}:9000 fail_timeout=0;
+}
+
+server {
+    listen 8080;
+    server_name _;
+
+    root /home/frappe/frappe-bench/sites;
+
+    client_max_body_size ${CLIENT_MAX_BODY_SIZE};
+    # Frappe writes its own compressed responses for some endpoints; letting
+    # nginx re-compress them corrupts the body.
+    gzip on;
+    gzip_proxied any;
+    gzip_types text/plain text/css application/json application/javascript text/xml application/xml image/svg+xml;
+
+    add_header X-Content-Type-Options nosniff always;
+    add_header X-Frame-Options SAMEORIGIN always;
+    add_header Referrer-Policy strict-origin-when-cross-origin always;
+
+    # Hashed filenames, so they can be cached hard. This is the whole reason
+    # nginx is in front: without it every asset request wakes a Python worker.
+    location /assets {
+        try_files $uri =404;
+        access_log off;
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+    }
+
+    # Public uploads, served off the volume. The try_files fallback matters: a
+    # File row can exist with its bytes not yet on this node, and Frappe answers
+    # that correctly where a bare 404 would not.
+    location /files {
+        try_files $uri @frappe;
+        expires 1h;
+    }
+
+    # Private uploads are deliberately NOT served from disk. They fall through
+    # to `location /` and out to Frappe, which checks whether the requesting
+    # user may read the attached document first. An `alias` into
+    # sites/<site>/private/files would hand every private attachment to anyone
+    # who guessed a filename, and the X-Accel-Redirect arrangement that makes
+    # nginx safe here is only wired up when Frappe is configured to emit it.
+
+    location /socket.io {
+        proxy_set_header Host $host;
+        proxy_set_header X-Frappe-Site-Name ${SITE_NAME};
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_http_version 1.1;
+        proxy_pass http://frappe_websocket;
+    }
+
+    location / {
+        try_files $uri @frappe;
+    }
+
+    location @frappe {
+        proxy_set_header Host $host;
+        proxy_set_header X-Frappe-Site-Name ${SITE_NAME};
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        # Frappe builds absolute URLs (password reset links, the email-link
+        # login) from this. Without it every link in an outgoing email comes out
+        # http:// even on an https site, and browsers refuse to follow them from
+        # a secure page.
+        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        proxy_http_version 1.1;
+        proxy_read_timeout ${PROXY_READ_TIMEOUT};
+        proxy_redirect off;
+        proxy_pass http://frappe_backend;
+    }
+}

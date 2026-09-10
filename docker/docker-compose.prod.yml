@@ -1,0 +1,184 @@
+# Production stack. For Dokploy, Coolify, or a plain `docker compose up -d`.
+#
+#   docker compose -f docker/docker-compose.prod.yml up -d --build
+#
+# In Dokploy: create a Compose application, point it at this repo, set the
+# compose path to docker/docker-compose.prod.yml, paste .env.prod.example into
+# the Environment tab with real values, and attach your domain to the `nginx`
+# service on port 8080.
+#
+# Do NOT deploy docker/docker-compose.dev.yml. That one builds the whole bench
+# at container start from a bind-mounted working tree and then serves it with
+# Werkzeug in developer mode -- fifteen minutes of work on every deploy, and a
+# debug server on the public internet at the end of it.
+#
+# One image, six commands. `backend`, `websocket`, `worker`, `scheduler` and the
+# one-shot `configurator` are all the image built by ../Dockerfile, differing
+# only in the argument the entrypoint switches on. That is the frappe_docker
+# shape, and it means the Python code cannot drift between the web process and
+# the workers.
+
+name: ${COMPOSE_PROJECT_NAME:-lms}
+
+x-app: &app
+    build:
+        context: ..
+        dockerfile: Dockerfile
+        args:
+            FRAPPE_BRANCH: ${FRAPPE_BRANCH:-develop}
+            PAYMENTS_BRANCH: ${PAYMENTS_BRANCH:-develop}
+            NODE_MEMORY_MB: ${NODE_MEMORY_MB:-6144}
+    image: ${LMS_IMAGE:-lms-prod:latest}
+    restart: unless-stopped
+    environment: &app-env
+        SITE_NAME: ${SITE_NAME:?set SITE_NAME}
+        DB_HOST: postgres
+        DB_PORT: "5432"
+        DB_ROOT_USER: ${POSTGRES_USER:-postgres}
+        DB_ROOT_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+        ADMIN_PASSWORD: ${ADMIN_PASSWORD:?set ADMIN_PASSWORD}
+        REDIS_CACHE: redis-cache:6379
+        REDIS_QUEUE: redis-queue:6379
+        SOCKETIO_PORT: "9000"
+        LMS_PATH: ${LMS_PATH-}
+        SENDGRID_API_KEY: ${SENDGRID_API_KEY:-}
+        SENDGRID_HOST: ${SENDGRID_HOST:-smtp.sendgrid.net}
+        SENDGRID_PORT: ${SENDGRID_PORT:-587}
+        FROM_EMAIL: ${FROM_EMAIL:-}
+        MAIL_SENDER_NAME: ${MAIL_SENDER_NAME:-Jutsu Academy}
+        MAIL_SERVER: ${MAIL_SERVER:-}
+        MAIL_PORT: ${MAIL_PORT:-587}
+        MAIL_LOGIN: ${MAIL_LOGIN:-}
+        MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+    volumes:
+        # The one piece of durable state the app itself owns: site_config.json,
+        # public and private uploads, and the assets the entrypoint lays down.
+        # Every service mounts it because every service reads the site config.
+        - sites:/home/frappe/frappe-bench/sites
+        - logs:/home/frappe/frappe-bench/logs
+
+services:
+    postgres:
+        image: postgres:${POSTGRES_VERSION:-15.17}
+        restart: unless-stopped
+        environment:
+            POSTGRES_USER: ${POSTGRES_USER:-postgres}
+            POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+        healthcheck:
+            test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER}"]
+            interval: 5s
+            timeout: 5s
+            retries: 20
+        volumes:
+            - postgres-data:/var/lib/postgresql/data
+
+    # Two Redises, as Frappe expects. The cache is disposable; the queue holds
+    # jobs that have been accepted but not yet run, so it gets a volume and
+    # losing it means losing queued work.
+    redis-cache:
+        image: ${REDIS_IMAGE:-redis:alpine}
+        restart: unless-stopped
+
+    redis-queue:
+        image: ${REDIS_IMAGE:-redis:alpine}
+        restart: unless-stopped
+        volumes:
+            - redis-queue-data:/data
+
+    # Runs once per deploy and exits: writes common_site_config.json, creates the
+    # site on a first deploy, runs `bench migrate` on every later one. Everything
+    # below waits for it to succeed, so nothing serves traffic against a schema
+    # that has not been migrated yet, and no two services race to migrate.
+    configurator:
+        <<: *app
+        restart: "no"
+        command: ["configurator"]
+        depends_on:
+            postgres:
+                condition: service_healthy
+            redis-cache:
+                condition: service_started
+            redis-queue:
+                condition: service_started
+
+    backend:
+        <<: *app
+        command: ["gunicorn"]
+        environment:
+            <<: *app-env
+            GUNICORN_WORKERS: ${GUNICORN_WORKERS:-2}
+            GUNICORN_THREADS: ${GUNICORN_THREADS:-4}
+            GUNICORN_TIMEOUT: ${GUNICORN_TIMEOUT:-120}
+        healthcheck:
+            test:
+                [
+                    "CMD-SHELL",
+                    "curl -fsS -H 'X-Frappe-Site-Name: ${SITE_NAME}' http://localhost:8000/api/method/ping >/dev/null || exit 1",
+                ]
+            interval: 15s
+            timeout: 10s
+            retries: 20
+            start_period: 30s
+        depends_on:
+            configurator:
+                condition: service_completed_successfully
+
+    websocket:
+        <<: *app
+        command: ["websocket"]
+        depends_on:
+            configurator:
+                condition: service_completed_successfully
+
+    # One worker covering all three queues. Split it into queue-short
+    # (short,default) and queue-long (long,default) once a slow job starts
+    # holding up notifications -- they are the same service with a different
+    # WORKER_QUEUES.
+    worker:
+        <<: *app
+        command: ["worker"]
+        environment:
+            <<: *app-env
+            WORKER_QUEUES: ${WORKER_QUEUES:-short,default,long}
+        depends_on:
+            configurator:
+                condition: service_completed_successfully
+
+    scheduler:
+        <<: *app
+        command: ["scheduler"]
+        depends_on:
+            configurator:
+                condition: service_completed_successfully
+
+    # Stock nginx rather than the app image: it needs no Python, and keeping it
+    # on the upstream image means security updates arrive with a pull. It reads
+    # the same sites volume, which is how it serves /assets and /files without
+    # waking a gunicorn worker.
+    nginx:
+        image: ${NGINX_IMAGE:-nginx:alpine}
+        restart: unless-stopped
+        environment:
+            SITE_NAME: ${SITE_NAME:?set SITE_NAME}
+            BACKEND_HOST: backend
+            WEBSOCKET_HOST: websocket
+            CLIENT_MAX_BODY_SIZE: ${CLIENT_MAX_BODY_SIZE:-50m}
+            PROXY_READ_TIMEOUT: ${PROXY_READ_TIMEOUT:-120}
+        volumes:
+            - ./nginx.conf.template:/etc/nginx/templates/default.conf.template:ro
+            - sites:/home/frappe/frappe-bench/sites:ro
+        ports:
+            # Attach your PaaS domain here. Publish to 127.0.0.1 only if
+            # something else on the host terminates TLS.
+            - ${HTTP_PORT:-8080}:8080
+        depends_on:
+            backend:
+                condition: service_healthy
+            websocket:
+                condition: service_started
+
+volumes:
+    postgres-data:
+    redis-queue-data:
+    sites:
+    logs:

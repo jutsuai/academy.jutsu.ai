@@ -1,0 +1,40 @@
+# Keeps the build context to the source and nothing else.
+#
+# Without this, `COPY . apps/lms` in the Dockerfile ships the whole 2 GB working
+# directory to the daemon: 1 GB of .git, 729 MB of frontend/node_modules and
+# 110 MB of root node_modules. On a PaaS that context crosses the network on
+# every build, and the node_modules are actively harmful -- rollup and esbuild
+# ship per-platform binaries, so a macOS install landing in a Linux image makes
+# `yarn build` fail with "Cannot find module @rollup/rollup-linux-x64-gnu".
+# The image runs its own `yarn install` instead.
+
+.git
+.github
+**/node_modules
+
+# Build output. Regenerated inside the image by `yarn build`; copying a local
+# build in would mask a broken one and can carry stale hashed filenames.
+lms/public/frontend
+lms/public/css/jutsu-web.css
+lms/www/_lms.html
+frontend/dist
+
+# Local-only, and some of it secret.
+.env
+.env.*
+!.env.example
+!.env.prod.example
+docker/docker-compose.dev.yml
+sites
+*.log
+yarn-error.log
+
+# Test and tooling noise that never runs in the image.
+cypress
+**/__pycache__
+**/*.pyc
+.pytest_cache
+.ruff_cache
+.vscode
+.idea
+.DS_Store

@@ -113,6 +113,82 @@ works. And `@framework/ui` is a symlink into the bench (`apps/frappe/ui`), which
 exists only inside the container -- one suite, `ravenSettings`, fails to resolve
 it anywhere else.
 
+## Deploying to production
+
+`docker/docker-compose.dev.yml` is **not** deployable, and the failure is not
+subtle: it builds the entire bench at container start from a bind-mounted
+working tree — clone Frappe, compile the Python deps, `yarn install`,
+`yarn build` — then serves the result with Werkzeug in developer mode. Fifteen
+minutes of work on every deploy, several GB of RAM to do it, and a debug server
+on the public internet at the end. A PaaS gives up waiting long before it
+finishes.
+
+Use `docker/docker-compose.prod.yml` instead. It runs one image, built by
+`Dockerfile` at the repo root, six ways:
+
+| service | what it runs |
+|---|---|
+| `configurator` | one-shot: writes `common_site_config.json`, creates the site on a first deploy, `bench migrate` on every later one, then exits |
+| `backend` | gunicorn, `frappe.app:application` |
+| `websocket` | `apps/frappe/socketio.js` |
+| `worker` | `bench worker`, all three queues |
+| `scheduler` | `bench schedule` |
+| `nginx` | stock `nginx:alpine`, serving `/assets` and `/files` off the shared volume and proxying the rest |
+
+Everything except `configurator` waits for it to exit successfully, so nothing
+serves traffic against an unmigrated schema and no two services race to migrate.
+
+### Dokploy
+
+1. Create a **Compose** application pointed at this repository.
+2. Set the compose path to `docker/docker-compose.prod.yml`.
+3. Paste `.env.prod.example` into the Environment tab and fill in the four
+   required values: `SITE_NAME`, `POSTGRES_PASSWORD`, `ADMIN_PASSWORD`, and one
+   of `SENDGRID_API_KEY` / `MAIL_SERVER`. Compose refuses to start without the
+   first three rather than quietly creating a site with a guessable password.
+4. Attach your domain to the **`nginx`** service, port **8080**.
+5. Deploy.
+
+The first deploy builds the image, which takes roughly fifteen minutes and wants
+about 8 GB of RAM — `yarn build` alone runs Node with a 6 GB heap. **If your
+build host has less, the build fails rather than degrades**; that is the single
+most likely cause of a failed first deploy. Later deploys reuse the layer cache
+and only rebuild from the `COPY` of your source onward.
+
+Containers then start in seconds, because nothing is left to compile.
+
+### Things worth knowing
+
+**`SITE_NAME` is internal, not your domain.** nginx sends it as
+`X-Frappe-Site-Name` on every proxied request, so the site keeps working
+whatever hostname the router puts in `Host`. Changing it later means creating a
+new site, so pick one and keep it.
+
+**Assets live in the image, state lives in the volume.** The `sites` volume
+holds `site_config.json` and uploads; it is mounted over `sites/`, which hides
+the assets the image built there. The entrypoint copies them back on every
+start — unconditionally, because on a redeploy the volume already holds the
+*previous* image's assets and an "only if missing" check would serve those
+forever while the Python moved on.
+
+**Postgres, not MariaDB.** This matches the dev stack, at the cost Frappe
+documents: it calls Postgres support beta. Two Postgres-only `GROUP BY` bugs in
+this app have already been found and fixed (`get_certified_participants`,
+`get_lesson_completion_stats`); MariaDB tolerated both because Frappe runs it
+without `ONLY_FULL_GROUP_BY`. Expect to meet more of them, and reach for
+`docker compose ... logs backend` when a page renders empty rather than erroring.
+
+**Back up the volumes.** `postgres-data` and `sites` are the deployment. The
+rest is reproducible from this repository.
+
+```bash
+docker compose -f docker/docker-compose.prod.yml exec backend \
+  bench --site "$SITE_NAME" backup --with-files
+```
+
+**Redis queue durability.** `redis-queue` has a volume because it holds jobs
+that have been accepted but not yet run; `redis-cache` deliberately does not.
+
 ## Upstream disposable Docker setup
 
 **Step 1:** Clone the repo

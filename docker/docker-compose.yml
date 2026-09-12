@@ -91,9 +91,19 @@ services:
       - 127.0.0.1:8000:8000
       - 127.0.0.1:9000:9000
     healthcheck:
+      # The Host header matters. Frappe picks the site from it, and there is no
+      # site called `localhost`, so a bare curl to localhost:8000 got Frappe's
+      # "site not found" 404 -- the check never passed, the container stayed
+      # unhealthy, and Traefik's docker provider skips containers that are not
+      # healthy. The labels were right and the app was serving fine; the domain
+      # still answered 404 from Traefik itself because no router was ever built.
+      # `$$` escapes compose interpolation so the container's own SITE_NAME is
+      # what gets expanded, keeping this correct whatever the domain becomes.
+      test:
+        - CMD-SHELL
+        - curl -fsS -H Host:$$SITE_NAME http://localhost:8000/api/method/ping || exit 1
       # start_period is generous because a deploy that has to rebuild the SPA
       # takes several minutes before the port answers.
-      test: ["CMD-SHELL", "curl -fsS http://localhost:8000/api/method/ping || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5

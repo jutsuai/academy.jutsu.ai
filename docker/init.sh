@@ -62,6 +62,38 @@ export NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=6144}"
 FRONTEND_MODULES="$APP_DIR/frontend/node_modules"
 [ -d "$FRONTEND_MODULES" ] && sudo chown frappe:frappe "$FRONTEND_MODULES"
 
+# Make the bind-mounted checkout writable by the user we run as.
+#
+# The mount carries the host's ownership, and Dokploy clones the repo as root
+# while everything in here runs as `frappe` (uid 1000) — so the whole tree
+# arrives readable but not writable. That is not just a tidiness problem: vite
+# bundles vite.config.js and writes the result *next to it* as
+# vite.config.js.timestamp-*.mjs before it will build, so the build dies on
+# "EACCES: permission denied, open .../vite.config.js.timestamp-...mjs" before
+# bundling a single module. The build outputs land in the mount too
+# (lms/public/frontend/, lms/www/_lms.html, lms/public/css/jutsu-web.css), as
+# does the egg-info that `pip install -e` writes.
+#
+# node_modules and .git are both pruned. node_modules is a separate named volume,
+# the line above already fixes its mount point, and walking it costs minutes.
+# .git is left at the host's ownership on purpose: bench only ever reads it (git
+# describe, for app versions), and chowning it would hand Dokploy's own root-owned
+# clone back a tree git then refuses to touch. Marking it safe.directory gets the
+# container's git past the "detected dubious ownership" refusal without changing
+# anything on the host.
+#
+# The -w guard keeps the chown a no-op on Docker Desktop, where the mount is
+# already writable by the container user and a recursive chown is pure latency.
+ensure_app_writable() {
+    git config --global --add safe.directory "$APP_DIR" 2>/dev/null || true
+    if [ -w "$APP_DIR/frontend" ] && [ -w "$APP_DIR/lms/public" ] && [ -w "$APP_DIR" ]; then
+        return 0
+    fi
+    echo ">>> Bind mount belongs to another uid; taking ownership of the checkout..."
+    sudo find "$APP_DIR" \( -name node_modules -o -name .git \) -prune -o \
+        -exec chown frappe:frappe {} +
+}
+
 # compose gates this container on both healthchecks, but `docker stack deploy`
 # (Swarm) drops depends_on entirely, and that dropped gate is what used to kill
 # this container: `bench new-site` hit a MariaDB still running its first-boot
@@ -144,6 +176,8 @@ configure_procfile() {
         sed -i "s|^web:.*|web: bench serve --port 8000|" ./Procfile
     fi
 }
+
+ensure_app_writable
 
 wait_for_tcp mariadb 3306 MariaDB
 wait_for_tcp redis 6379 Redis

@@ -169,7 +169,23 @@ configure_procfile() {
         sed -i "s|^web:.*|web: bench serve --port 8000|" ./Procfile
     elif [ -x "$BENCH_DIR/env/bin/gunicorn" ]; then
         echo ">>> Web process: gunicorn, $GUNICORN_WORKERS workers"
-        sed -i "s|^web:.*|web: sh -c 'cd sites \&\& exec ../env/bin/gunicorn -b 0.0.0.0:8000 -w $GUNICORN_WORKERS -t 120 --preload frappe.app:application'|" ./Procfile
+        # application_with_statics(), not the bare frappe.app:application.
+        #
+        # A production bench runs nginx in front of gunicorn and lets nginx
+        # serve sites/assets and the per-site public files, so the bare WSGI app
+        # carries no static handling whatsoever. Nothing here is in front of
+        # gunicorn -- Traefik proxies straight to it -- so every /assets/... URL
+        # fell through to Frappe's router and came back as a 404 *page*: the app
+        # answered 200, and rendered with no CSS and no JS at all.
+        #
+        # Frappe exports this factory for exactly this case; it is the same pair
+        # of middlewares (/assets and /files) that `bench serve` attaches, so the
+        # two serving modes now behave the same. It resolves sites/ from the cwd,
+        # which is why the `cd sites` below matters.
+        #
+        # The inner double quotes are load-bearing: sh parses this command line
+        # and a bare `()` is a syntax error.
+        sed -i "s|^web:.*|web: sh -c 'cd sites \&\& exec ../env/bin/gunicorn -b 0.0.0.0:8000 -w $GUNICORN_WORKERS -t 120 --preload \"frappe.app:application_with_statics()\"'|" ./Procfile
     else
         # Never fail the boot over this: a served dev server beats no service.
         echo ">>> WARNING: gunicorn not found in env/bin, falling back to bench serve"

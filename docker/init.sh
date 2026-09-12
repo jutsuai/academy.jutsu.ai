@@ -15,10 +15,24 @@
 set -eo pipefail
 
 BENCH_DIR=/home/frappe/frappe-bench
+APP_DIR="$BENCH_DIR/apps/lms"
 
 # Site name. Override via env (compose / Dokploy). Defaults to `localhost` so
 # http://localhost:8000 works with no custom hostname.
 SITE_NAME="${SITE_NAME:-localhost}"
+
+# Credentials. The old hard-coded 123/admin were fine for a laptop and are not
+# fine on a public VPS; compose passes these through so Dokploy can override.
+DB_ROOT_PASSWORD="${DB_ROOT_PASSWORD:-123}"
+ADMIN_PASSWORD="${ADMIN_PASSWORD:-admin}"
+
+# Serving mode. developer_mode makes Frappe re-read sources per request and
+# skips the built-asset fast paths, so a deployment wants it off.
+DEVELOPER_MODE="${DEVELOPER_MODE:-0}"
+# DEV_SERVER=1 keeps the Procfile's `bench serve` (Werkzeug's development WSGI
+# server). 0 replaces it with gunicorn — see configure_procfile below.
+DEV_SERVER="${DEV_SERVER:-0}"
+GUNICORN_WORKERS="${GUNICORN_WORKERS:-2}"
 
 # The container command is not a login shell, so node is not on PATH yet. This
 # previously exported a path built from $NODE_VERSION_DEVELOP, which this image
@@ -45,87 +59,177 @@ export NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=6144}"
 # this the install dies on "EACCES: permission denied, mkdir". Non-recursive on
 # purpose: the volume is empty on a first run, and on later runs its contents
 # are already ours. Above the warm-start branch, which exec's straight out.
-FRONTEND_MODULES="$BENCH_DIR/apps/lms/frontend/node_modules"
+FRONTEND_MODULES="$APP_DIR/frontend/node_modules"
 [ -d "$FRONTEND_MODULES" ] && sudo chown frappe:frappe "$FRONTEND_MODULES"
+
+# compose gates this container on both healthchecks, but `docker stack deploy`
+# (Swarm) drops depends_on entirely, and that dropped gate is what used to kill
+# this container: `bench new-site` hit a MariaDB still running its first-boot
+# initialisation, failed, and `set -e` ended the script — and with it the
+# container. Cheap enough to re-check here rather than rely on the orchestrator.
+wait_for_tcp() {
+    local host=$1 port=$2 label=$3 waited=0
+    until (exec 3<>"/dev/tcp/$host/$port") 2>/dev/null; do
+        [ "$waited" -ge 180 ] && { echo "FATAL: $label ($host:$port) never came up"; exit 1; }
+        [ $((waited % 15)) -eq 0 ] && echo ">>> Waiting for $label at $host:$port..."
+        sleep 3
+        waited=$((waited + 3))
+    done
+    echo ">>> $label is up."
+}
+
+# Builds the Vue SPA into lms/public/frontend/ and writes lms/www/_lms.html.
+# `yarn build` also regenerates lms/public/css/jutsu-web.css, which themes
+# Frappe's own server-rendered pages (login, sign-up).
+#
+# Both of those paths are in .gitignore, so every Dokploy deploy clones a tree
+# with neither in it. The build used to live in the cold-start branch only,
+# which meant the first deploy built the SPA and every deploy after it served an
+# app whose entry template and asset bundle no longer existed on disk.
+build_frontend() {
+    echo ">>> Building the Vue frontend (vite build, not a dev server)..."
+    cd "$APP_DIR/frontend"
+    yarn install
+    yarn build
+    cd "$BENCH_DIR"
+}
+
+# True when the build outputs the running site needs are missing.
+frontend_assets_missing() {
+    [ ! -f "$APP_DIR/lms/public/frontend/index.html" ] ||
+        [ ! -f "$APP_DIR/lms/www/_lms.html" ]
+}
+
+# Creates the Frappe site and installs the apps into it.
+#
+# Called from the cold path and, on an existing bench, whenever sites/$SITE_NAME
+# is absent. That second case is the one that used to crash-loop the container:
+# change SITE_NAME in Dokploy (localhost -> academy.jutsu.ai, say) against a
+# bench volume that already exists and every later `bench --site "$SITE_NAME"`
+# failed on a site that was never created.
+create_site() {
+    cd "$BENCH_DIR"
+    echo ">>> Creating site $SITE_NAME..."
+    bench new-site "$SITE_NAME" \
+        --force \
+        --mariadb-root-password "$DB_ROOT_PASSWORD" \
+        --admin-password "$ADMIN_PASSWORD" \
+        --no-mariadb-socket
+
+    bench --site "$SITE_NAME" install-app payments
+    bench --site "$SITE_NAME" install-app lms
+    bench use "$SITE_NAME"
+    # resolve any Host header (localhost, 127.0.0.1, ...) to this site
+    bench set-config -g default_site "$SITE_NAME"
+}
+
+# Swap the Procfile's web process. `bench serve` is Werkzeug's development
+# server — single-threaded, reloading, and explicitly not for production — so
+# unless DEV_SERVER=1 this points the web line at gunicorn instead, matching
+# what `bench setup supervisor` generates for a production bench.
+configure_procfile() {
+    cd "$BENCH_DIR"
+    # `bench start` needs this file and every branch below rewrites it in place,
+    # so a missing one is an exit rather than a degraded start. Regenerate first.
+    [ -f ./Procfile ] || bench setup procfile
+    if [ "$DEV_SERVER" = "1" ]; then
+        echo ">>> Web process: bench serve (development)"
+        sed -i "s|^web:.*|web: bench serve --port 8000|" ./Procfile
+    elif [ -x "$BENCH_DIR/env/bin/gunicorn" ]; then
+        echo ">>> Web process: gunicorn, $GUNICORN_WORKERS workers"
+        sed -i "s|^web:.*|web: sh -c 'cd sites \&\& exec ../env/bin/gunicorn -b 0.0.0.0:8000 -w $GUNICORN_WORKERS -t 120 --preload frappe.app:application'|" ./Procfile
+    else
+        # Never fail the boot over this: a served dev server beats no service.
+        echo ">>> WARNING: gunicorn not found in env/bin, falling back to bench serve"
+        sed -i "s|^web:.*|web: bench serve --port 8000|" ./Procfile
+    fi
+}
+
+wait_for_tcp mariadb 3306 MariaDB
+wait_for_tcp redis 6379 Redis
 
 if [ -d "$BENCH_DIR/apps/frappe" ]; then
     echo ">>> Bench already exists, skipping init"
     cd "$BENCH_DIR"
-    # exec, not a bare call: this branch used to fall through to `bench init`
-    # once the server stopped, re-running the whole setup on every restart.
-    exec bench start
+    NEEDS_FULL_ASSET_BUILD=0
+else
+    echo ">>> Creating a new bench around your local LMS clone..."
+
+    # Docker creates the parent directories of a nested bind mount itself, as root,
+    # so frappe-bench/ and frappe-bench/apps/ arrive root-owned and `bench init`
+    # dies with "Permission denied: /home/frappe/frappe-bench/sites". Chown just
+    # those two — NOT -R, which would recurse into your host repo.
+    sudo chown frappe:frappe "$BENCH_DIR" "$BENCH_DIR/apps"
+
+    # --ignore-exist: frappe-bench/ is already non-empty, because Docker created the
+    # apps/lms bind mount before this script ran.
+    #
+    # --skip-assets: `bench init` ends with a `bench build`, and bench discovers apps
+    # by listing apps/, where the mount has already put lms. It would try to build an
+    # app whose Python package is not installed yet and die on "ModuleNotFoundError:
+    # No module named 'lms'". Assets are built further down, once lms is a real
+    # editable install.
+    bench init \
+        --ignore-exist \
+        --skip-redis-config-generation \
+        --skip-assets \
+        "$BENCH_DIR"
+
+    cd "$BENCH_DIR"
+
+    # Use containers instead of localhost
+    bench set-mariadb-host mariadb
+    bench set-redis-cache-host redis://redis:6379
+    bench set-redis-queue-host redis://redis:6379
+    bench set-redis-socketio-host redis://redis:6379
+
+    # Remove redis, watch from Procfile
+    sed -i '/redis/d' ./Procfile
+    sed -i '/watch/d' ./Procfile
+
+    # Register the bind-mounted checkout as the `lms` app. This replaces
+    # `bench get-app lms`, which cloned upstream frappe/lms over the top of it.
+    # Before `bench get-app payments`, which builds assets and would otherwise hit
+    # the missing-module error described above.
+    echo ">>> Registering the bind-mounted local clone as the 'lms' app..."
+    ./env/bin/pip install --no-cache-dir -e apps/lms
+    grep -qxF lms sites/apps.txt 2>/dev/null || echo lms >> sites/apps.txt
+
+    bench get-app payments
+
+    # `bench init --skip-assets` above means frappe's own assets have never been
+    # built in this bench, so the first build has to cover every app, not just lms.
+    NEEDS_FULL_ASSET_BUILD=1
 fi
 
-echo ">>> Creating a new bench around your local LMS clone..."
+cd "$BENCH_DIR"
+[ -d "$BENCH_DIR/sites/$SITE_NAME" ] || create_site
 
-# Docker creates the parent directories of a nested bind mount itself, as root,
-# so frappe-bench/ and frappe-bench/apps/ arrive root-owned and `bench init`
-# dies with "Permission denied: /home/frappe/frappe-bench/sites". Chown just
-# those two — NOT -R, which would recurse into your host repo.
-sudo chown frappe:frappe "$BENCH_DIR" "$BENCH_DIR/apps"
-
-# --ignore-exist: frappe-bench/ is already non-empty, because Docker created the
-# apps/lms bind mount before this script ran.
+# Applied on every start, not just at init, so flipping the env var in Dokploy
+# actually takes effect on redeploy.
 #
-# --skip-assets: `bench init` ends with a `bench build`, and bench discovers apps
-# by listing apps/, where the mount has already put lms. It would try to build an
-# app whose Python package is not installed yet and die on "ModuleNotFoundError:
-# No module named 'lms'". Assets are built further down, once lms is a real
-# editable install.
-bench init \
-    --ignore-exist \
-    --skip-redis-config-generation \
-    --skip-assets \
-    "$BENCH_DIR"
+# -p/--parse stores an int rather than a string, and that matters here: Frappe
+# reads this as `if conf.developer_mode`, where the *string* "0" is truthy — so
+# without --parse, DEVELOPER_MODE=0 would leave developer mode switched on.
+# Guarded rather than asserted: a bench whose set-config lacks the flag should
+# log and carry on, not crash-loop the container.
+bench --site "$SITE_NAME" set-config -p developer_mode "$DEVELOPER_MODE" ||
+    echo ">>> WARNING: could not set developer_mode=$DEVELOPER_MODE, leaving as-is"
 
-cd "$BENCH_DIR"
+if [ "$NEEDS_FULL_ASSET_BUILD" = "1" ] || frontend_assets_missing; then
+    build_frontend
+    if [ "$NEEDS_FULL_ASSET_BUILD" = "1" ]; then
+        bench build
+    else
+        bench build --app lms
+    fi
+else
+    echo ">>> Frontend build outputs already present, skipping vite build"
+fi
 
-# Use containers instead of localhost
-bench set-mariadb-host mariadb
-bench set-redis-cache-host redis://redis:6379
-bench set-redis-queue-host redis://redis:6379
-bench set-redis-socketio-host redis://redis:6379
-
-# Remove redis, watch from Procfile
-sed -i '/redis/d' ./Procfile
-sed -i '/watch/d' ./Procfile
-
-# Register the bind-mounted checkout as the `lms` app. This replaces
-# `bench get-app lms`, which cloned upstream frappe/lms over the top of it.
-# Before `bench get-app payments`, which builds assets and would otherwise hit
-# the missing-module error described above.
-echo ">>> Registering the bind-mounted local clone as the 'lms' app..."
-./env/bin/pip install --no-cache-dir -e apps/lms
-grep -qxF lms sites/apps.txt 2>/dev/null || echo lms >> sites/apps.txt
-
-bench get-app payments
-
-bench new-site "$SITE_NAME" \
---force \
---mariadb-root-password 123 \
---admin-password admin \
---no-mariadb-socket
-
-bench --site "$SITE_NAME" install-app payments
-bench --site "$SITE_NAME" install-app lms
-bench --site "$SITE_NAME" set-config developer_mode 1
 bench --site "$SITE_NAME" clear-cache
-bench use "$SITE_NAME"
-# resolve any Host header (localhost, 127.0.0.1, ...) to this site
-bench set-config -g default_site "$SITE_NAME"
-
-# The Vue SPA. `yarn build` also regenerates lms/public/css/jutsu-web.css, which
-# themes Frappe's own server-rendered pages (login, sign-up).
-echo ">>> Building the Vue frontend..."
-cd "$BENCH_DIR/apps/lms/frontend"
-yarn install
-yarn build
-
-cd "$BENCH_DIR"
-# Full build, not --app lms: `bench init --skip-assets` above means frappe's own
-# assets have never been built in this bench.
-bench build
+configure_procfile
 
 echo ">>> Ready. The app is at http://localhost:8000/lms/"
-echo ">>> Site: $SITE_NAME (Administrator / admin)"
+echo ">>> Site: $SITE_NAME (Administrator / \$ADMIN_PASSWORD)"
 exec bench start

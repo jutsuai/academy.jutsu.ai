@@ -1,30 +1,75 @@
-version: "3.7"
 name: lms
 services:
   mariadb:
     image: mariadb:10.8
+    restart: unless-stopped
     command:
       - --character-set-server=utf8mb4
       - --collation-server=utf8mb4_unicode_ci
       - --skip-character-set-client-handshake
       - --skip-innodb-read-only-compressed # Temporary fix for MariaDB 10.6
     environment:
-      MYSQL_ROOT_PASSWORD: 123
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-123}
     volumes:
       - mariadb-data:/var/lib/mysql
+    # Without this the frappe container raced a cold MariaDB: `bench new-site`
+    # ran while the server was still doing its first-run initialisation, failed,
+    # and took the whole container down with it (init.sh runs under `set -e`).
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - mysqladmin ping -h 127.0.0.1 -u root -p"$$MYSQL_ROOT_PASSWORD" --silent
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
+    networks:
+      - default
 
   redis:
     image: redis:alpine
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks:
+      - default
 
   frappe:
     image: frappe/bench:latest
+    # `bench start` is honcho: when any one Procfile process dies it tears the
+    # rest down and exits. Previously that left an Exited container, which
+    # Dokploy's docker cleanup then pruned -- the "container gets deleted"
+    # symptom. Restarting means a dead worker costs a restart, not the service.
+    restart: unless-stopped
     command: bash /home/frappe/frappe-bench/apps/lms/docker/init.sh
+    depends_on:
+      mariadb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
       - SHELL=/bin/bash
       # bench serve binds 127.0.0.1 by default, which the port mapping cannot reach
       - FRAPPE_BIND_ADDR=0.0.0.0
       # site name; override in Dokploy to match your domain
       - SITE_NAME=${SITE_NAME:-localhost}
+      # Credentials. Defaulted for local dev; set both in Dokploy's Environment
+      # tab before exposing this to the internet.
+      - DB_ROOT_PASSWORD=${DB_ROOT_PASSWORD:-123}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin}
+      # 0 serves the built SPA and skips Frappe's source-watching code paths.
+      # Set to 1 only for a local bench you are editing.
+      - DEVELOPER_MODE=${DEVELOPER_MODE:-0}
+      # 0 swaps the Procfile's `bench serve` (Werkzeug's *development* WSGI
+      # server) for gunicorn. See init.sh.
+      - DEV_SERVER=${DEV_SERVER:-0}
+      - GUNICORN_WORKERS=${GUNICORN_WORKERS:-2}
+      # The SPA build OOMs at node's default heap. Lower this if the host has
+      # less than ~8GB, or the kernel OOM-kills the build (exit 137).
+      - NODE_OPTIONS=${NODE_OPTIONS:---max-old-space-size=6144}
     working_dir: /home/frappe
     volumes:
       # The bench itself, so a restart reuses it instead of rebuilding from zero.
@@ -39,10 +84,32 @@ services:
       # bind-mounted node_modules is also painfully slow to install into.
       - frontend-node-modules:/home/frappe/frappe-bench/apps/lms/frontend/node_modules
     ports:
-      - 8000:8000
-      - 9000:9000
+      # Bound to loopback, not 0.0.0.0: on a public VPS the old `8000:8000`
+      # published the app straight to the internet, bypassing Dokploy's Traefik
+      # (and its TLS). Traefik reaches the container over dokploy-network
+      # instead; this mapping is only for `ssh -L 8000:localhost:8000` debugging.
+      - 127.0.0.1:8000:8000
+      - 127.0.0.1:9000:9000
+    healthcheck:
+      # start_period is generous because a deploy that has to rebuild the SPA
+      # takes several minutes before the port answers.
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8000/api/method/ping || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 900s
+    networks:
+      - default
+      # Dokploy routes domains through Traefik, which only sees containers on
+      # this network. Point the Dokploy domain at service `frappe`, port 8000.
+      - dokploy-network
 
 volumes:
   mariadb-data:
   bench:
   frontend-node-modules:
+
+networks:
+  default:
+  dokploy-network:
+    external: true

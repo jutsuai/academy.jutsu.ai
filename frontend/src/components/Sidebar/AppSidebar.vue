@@ -1,6 +1,9 @@
 <template>
+	<!-- No `border-e` here: DesktopLayout's `.jutsu-rail` wrapper draws the edge.
+	     A second one doubled the hairline and left the collapsed rail 55px wide
+	     inside, so everything centred in it landed on half pixels. -->
 	<div
-		class="flex h-full flex-col justify-between transition-all duration-300 ease-in-out border-e overflow-x-hidden"
+		class="flex h-full flex-col justify-between transition-all duration-300 ease-in-out overflow-x-hidden"
 		:class="sidebarStore.isSidebarCollapsed ? 'w-14' : 'w-64'"
 	>
 		<div
@@ -9,7 +12,11 @@
 		>
 			<UserDropdown :isCollapsed="sidebarStore.isSidebarCollapsed" />
 			<div class="flex flex-col" v-if="sidebarSettings.data">
-				<div v-for="link in sidebarLinks" class="px-2 py-1">
+				<div
+					v-for="link in sidebarLinks"
+					class="py-1"
+					:class="{ 'px-2': !sidebarStore.isSidebarCollapsed }"
+				>
 					<div
 						v-if="!link.hideLabel"
 						class="flex h-8 shrink-0 items-center gap-1.5 px-3 text-xs font-medium text-ink-gray-5 transition-all duration-200 ease-out"
@@ -31,8 +38,12 @@
 				class="mt-4"
 			>
 				<div
-					class="flex items-center justify-between pe-2 cursor-pointer"
-					:class="sidebarStore.isSidebarCollapsed ? 'ps-3' : 'ps-4'"
+					class="flex items-center cursor-pointer"
+					:class="
+						sidebarStore.isSidebarCollapsed
+							? 'justify-center'
+							: 'justify-between ps-4 pe-2'
+					"
 					@click="toggleWebPages"
 				>
 					<div
@@ -69,7 +80,8 @@
 				>
 					<div
 						v-for="link in sidebarSettings.data.web_pages"
-						class="mx-2 my-0.5"
+						class="my-0.5"
+						:class="{ 'mx-2': !sidebarStore.isSidebarCollapsed }"
 					>
 						<SidebarLink
 							:link="link"

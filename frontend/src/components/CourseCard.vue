@@ -7,7 +7,7 @@
 			 a 16/9 cover in a 410px column is 230px of image before a word of text.
 		-->
 		<div
-			class="h-32 w-full shrink-0 bg-cover bg-center bg-no-repeat"
+			class="h-32 w-full shrink-0 overflow-hidden rounded-3 bg-cover bg-center bg-no-repeat"
 			:style="
 				course.image
 					? { backgroundImage: `url('${encodeURI(course.image)}')` }

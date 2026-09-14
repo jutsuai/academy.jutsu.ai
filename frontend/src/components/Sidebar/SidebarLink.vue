@@ -3,17 +3,24 @@
 		v-if="link && !link.onlyMobile"
 		:data-notifications-trigger="link.panel === 'notifications' ? '' : null"
 		:data-active="isActive"
-		class="jutsu-nav-item flex w-full cursor-pointer items-center rounded-4 text-ink-gray-8 transition-colors duration-200 ease-out focus:outline-none focus-visible:focus-ring-blue"
-		:class="
+		class="jutsu-nav-item flex cursor-pointer items-center rounded-4 text-ink-gray-8 transition-colors duration-200 ease-out focus:outline-none focus-visible:focus-ring-blue"
+		:class="[
+			isCollapsed ? 'mx-auto w-11' : 'w-full',
 			isActive
 				? 'bg-brand/10 font-medium text-brand ring-1 ring-inset ring-brand/20 hover:bg-brand/[0.15]'
-				: 'hover:bg-surface-gray-2/70 hover:text-ink-gray-9'
-		"
+				: 'hover:bg-surface-gray-2/70 hover:text-ink-gray-9',
+		]"
 		@click="handleClick"
 	>
+		<!-- Collapsed, the item is a centred square as tall as the expanded row,
+		     so the icons keep their height when the rail folds. The gap lives only
+		     on the expanded branch: a `gap-0` beside a static `gap-2` loses the
+		     cascade, which left 8px after the icon and pushed it 4px off-centre.
+		     The label goes `sr-only` for the same reason — out of the flex flow,
+		     yet still the button's accessible name. -->
 		<div
-			class="group flex h-11 w-full items-center gap-2 duration-200 ease-out"
-			:class="isCollapsed ? 'relative justify-center gap-0 p-1' : 'px-3'"
+			class="group flex h-11 w-full items-center duration-200 ease-out"
+			:class="isCollapsed ? 'relative justify-center' : 'gap-2 px-3'"
 		>
 			<Tooltip
 				:text="__(link.label)"
@@ -38,11 +45,7 @@
 			>
 				<span
 					class="min-w-0 truncate text-p-base duration-200 ease-out"
-					:class="
-						isCollapsed
-							? 'ms-0 w-0 overflow-hidden opacity-0'
-							: 'w-auto opacity-100'
-					"
+					:class="isCollapsed ? 'sr-only opacity-0' : 'opacity-100'"
 				>
 					{{ __(link.label) }}
 				</span>

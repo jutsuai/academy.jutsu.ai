@@ -266,6 +266,15 @@ cd "$BENCH_DIR"
 bench --site "$SITE_NAME" set-config -p developer_mode "$DEVELOPER_MODE" ||
     echo ">>> WARNING: could not set developer_mode=$DEVELOPER_MODE, leaving as-is"
 
+# Outgoing mail never leaves on its own: frappe.sendmail only writes an Email
+# Queue row, and the scheduler's `frappe.email.queue.flush` job is what hands
+# those rows to a worker to send. A site from `bench new-site` starts with the
+# scheduler disabled (`bench setup production` is what normally flips it), so
+# every email -- sign-up, password reset, enrolment -- sat in the queue as
+# "Not Sent" even with a working Email Account. Idempotent, so run every start.
+bench --site "$SITE_NAME" enable-scheduler ||
+    echo ">>> WARNING: could not enable the scheduler; outgoing email will queue but not send"
+
 if [ "$NEEDS_FULL_ASSET_BUILD" = "1" ] || frontend_assets_missing; then
     build_frontend
     if [ "$NEEDS_FULL_ASSET_BUILD" = "1" ]; then

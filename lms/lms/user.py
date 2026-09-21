@@ -1,3 +1,4 @@
+import re
 import time
 
 import frappe
@@ -5,8 +6,16 @@ from frappe import _
 from frappe.model.naming import append_number_if_name_exists
 from frappe.utils import cint, escape_html, random_string
 from frappe.website.utils import cleanup_page_name, is_signup_disabled
+from werkzeug.exceptions import abort
+from werkzeug.utils import redirect
 
 from lms.lms.utils import get_country_code, get_lms_route
+
+# Where Frappe strands a logged-in user who has no desk access. `/` shows Frappe's
+# home page (My Account by default, whose only way onward is a "Desktop" link), and
+# /desk answers Not Permitted with a "Home" button back to My Account; /app and
+# /apps redirect to /desk. None of them lead into the LMS.
+DEAD_END_PATHS = re.compile(r"^/((desk|app)(/.*)?|apps/?)?$")
 
 
 def validate_username_duplicates(doc, method):
@@ -104,3 +113,24 @@ def on_login(login_manager):
 	default_app = frappe.db.get_single_value("System Settings", "default_app")
 	if default_app == "lms":
 		frappe.local.response["home_page"] = get_lms_route()
+
+
+def redirect_website_users_to_lms():
+	"""Send users without desk access to the LMS instead of a page they can't use.
+
+	A before_request hook because neither website mechanism fits: website_redirects
+	are cached per path for every user, and /desk is special-cased at the top of
+	Frappe's path resolver, before redirects or page renderers are consulted.
+	"""
+	# Page loads only; `cmd` marks a legacy RPC call, which can target any path.
+	if frappe.request.method not in ("GET", "HEAD") or frappe.form_dict.cmd:
+		return
+
+	if not DEAD_END_PATHS.match(frappe.request.path):
+		return
+
+	# The same test desk.py uses to turn these users away.
+	if frappe.session.user == "Guest" or frappe.session.data.user_type != "Website User":
+		return
+
+	abort(redirect(get_lms_route()))

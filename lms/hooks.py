@@ -308,6 +308,10 @@ signup_form_template = "lms.plugins.show_custom_signup"
 
 on_login = "lms.lms.user.on_login"
 
+# Frappe answers the bare domain, /app and /desk with pages a student can't use
+# and no link into the LMS; this sends them to /lms instead.
+before_request = ["lms.lms.user.redirect_website_users_to_lms"]
+
 get_site_info = "lms.activation.get_site_info"
 
 add_to_apps_screen = [

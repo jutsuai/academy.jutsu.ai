@@ -190,6 +190,10 @@ const MANIFEST: Record<string, Privacy[]> = {
 	'components/Modals/EditCoverImage.vue': ['public'],
 	'components/UnsplashImageBrowser.vue': ['public'],
 	'components/Courses/CourseThumbnailField.vue': ['public', 'public'],
+	// The course description is the "About this course" block on the public
+	// course page, so images inserted into it must load for every learner.
+	'components/Courses/CourseOverviewSection.vue': ['public'],
+	'pages/Forms/NewCourseForm.vue': ['public'],
 	// Deliberately not readable by other users.
 	'components/Assignment.vue': ['private', 'private', 'private'],
 	'components/Modals/JobApplicationModal.vue': ['private'],
@@ -216,8 +220,6 @@ const MANIFEST: Record<string, Privacy[]> = {
 	'pages/Batches/BatchForm.vue': ['undeclared'],
 	'pages/Forms/EmailTemplateForm.vue': ['undeclared'],
 	'pages/Forms/NewBatchForm.vue': ['undeclared'],
-	'components/Courses/CourseOverviewSection.vue': ['undeclared'],
-	'pages/Forms/NewCourseForm.vue': ['undeclared'],
 	'pages/JobApplications.vue': ['undeclared'],
 	'pages/Forms/JobForm.vue': ['undeclared'],
 	'pages/Forms/ProfileEditForm.vue': ['undeclared'],

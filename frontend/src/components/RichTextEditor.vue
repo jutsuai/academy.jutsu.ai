@@ -50,6 +50,7 @@ import {
 	Strike,
 	Undo,
 } from 'frappe-ui/editor'
+import { compressImage } from '@/utils/compressImage'
 
 type Mention = { value: string; label: string }
 
@@ -122,8 +123,8 @@ const extensions = computed(() => [
 // unauthenticated /files/ path, the default the old TextEditor applied.
 const fileUpload = useFileUpload()
 
-function uploadFile(file: File) {
-	return fileUpload.upload(file, {
+async function uploadFile(file: File) {
+	return fileUpload.upload(await compressImage(file), {
 		private: true,
 		...(props.uploadArgs || {}),
 	})

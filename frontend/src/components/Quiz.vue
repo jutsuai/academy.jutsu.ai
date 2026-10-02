@@ -400,6 +400,14 @@
 				<Button v-if="inVideo" @click="props.backToVideo()">
 					{{ __('Resume Video') }}
 				</Button>
+				<Button
+					v-if="!inVideo && lessonNav.canGoNext"
+					variant="solid"
+					data-testid="quiz-next-lesson"
+					@click="lessonNav.goNext?.()"
+				>
+					{{ __('Next lesson') }}
+				</Button>
 			</div>
 		</div>
 		<div
@@ -495,6 +503,7 @@ import {
 } from 'vue'
 import { timeAgo } from '@/utils/format'
 import { announceLessonProgress } from '@/utils/lessonProgressSignal'
+import { lessonNav } from '@/utils/lessonNav'
 import ProgressBar from '@/components/ProgressBar.vue'
 import ResponsiveListView from '@/components/ResponsiveListView.vue'
 import RichTextEditor from '@/components/RichTextEditor.vue'

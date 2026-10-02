@@ -10,6 +10,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { announceLessonProgress } from '@/utils/lessonProgressSignal'
+import { lessonNav } from '@/utils/lessonNav'
 
 const pushMock = vi.hoisted(() => vi.fn())
 const replaceMock = vi.hoisted(() => vi.fn())
@@ -566,6 +567,63 @@ describe('Lesson.vue unlocks the next lesson without a reload', () => {
 
 		expect(outline.reload).not.toHaveBeenCalled()
 		expect((wrapper.vm as any).lessonProgress).not.toBe(90)
+	})
+
+	it('offers the quiz summary a Next button once the next lesson unlocks', async () => {
+		// The quiz renders outside this page's tree, so Next reaches it through
+		// lessonNav. It must follow the header button: hidden while the next
+		// lesson is locked, live as soon as the outline says otherwise.
+		wrapper = await mountLesson()
+		const outline = findResource('lms.lms.utils.get_course_outline')
+		findResource('lms.lms.utils.get_lesson').data = {
+			...baseLesson,
+			membership: { progress: 0 },
+		}
+		outline.data = [
+			{
+				lessons: [
+					{ number: '1-1', locked: 0 },
+					{ number: '1-2', locked: 1 },
+				],
+			},
+		]
+		await flushPromises()
+		expect(lessonNav.canGoNext).toBe(false)
+
+		outline.data = [
+			{
+				lessons: [
+					{ number: '1-1', locked: 0 },
+					{ number: '1-2', locked: 0 },
+				],
+			},
+		]
+		await flushPromises()
+		expect(lessonNav.canGoNext).toBe(true)
+
+		lessonNav.goNext?.()
+		expect(pushMock).toHaveBeenCalledWith(
+			expect.objectContaining({
+				name: 'Lesson',
+				params: expect.objectContaining({
+					chapterNumber: '1',
+					lessonNumber: '2',
+				}),
+			})
+		)
+	})
+
+	it('withdraws the quiz summary Next button when the page is left', async () => {
+		wrapper = await mountLesson()
+		findResource('lms.lms.utils.get_lesson').data = { ...baseLesson }
+		await flushPromises()
+		expect(lessonNav.canGoNext).toBe(true)
+
+		wrapper.unmount()
+		wrapper = null
+
+		expect(lessonNav.canGoNext).toBe(false)
+		expect(lessonNav.goNext).toBeNull()
 	})
 
 	it('stops listening for announcements when the page is left', async () => {

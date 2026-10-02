@@ -395,6 +395,7 @@ import {
 	onMounted,
 	onBeforeUnmount,
 	nextTick,
+	watchEffect,
 } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import {
@@ -414,6 +415,7 @@ import {
 	shouldAttachVideoFallback,
 } from '@/utils/lessonProgress'
 import { onLessonProgressAnnounced } from '@/utils/lessonProgressSignal'
+import { lessonNav } from '@/utils/lessonNav'
 import EditorJS from '@editorjs/editorjs'
 import LessonContent from '@/components/LessonContent.vue'
 import CourseInstructors from '@/components/CourseInstructors.vue'
@@ -542,6 +544,8 @@ onBeforeUnmount(() => {
 	// one — so a single progress event fires one outline reload per past visit.
 	socket.off('update_lesson_progress', onLessonProgress)
 	stopListeningForProgress?.()
+	lessonNav.canGoNext = false
+	lessonNav.goNext = null
 	if (collapsedByLesson) sidebarStore.isSidebarCollapsed = false
 	trackVideoWatchDuration()
 })
@@ -763,6 +767,13 @@ const canGoNext = computed(() => {
 	if (!outlineReady.value) return !!lesson.data?.next
 	return hasNext.value && !nextLessonLocked.value
 })
+
+// The quiz summary's own Next button (see utils/lessonNav). It mirrors the
+// header's Next exactly: same condition, same handler.
+watchEffect(() => {
+	lessonNav.canGoNext = Boolean(lesson.data?.next && canGoNext.value)
+})
+lessonNav.goNext = () => switchLesson('next')
 
 const goToLessonNumber = (number, { replace = false } = {}) => {
 	trackVideoWatchDuration()

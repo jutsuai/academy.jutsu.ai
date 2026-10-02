@@ -222,6 +222,11 @@ website_route_rules = [
 		"from_route": "/courses/<course_name>/<certificate_id>",
 		"to_route": "certificate",
 	},
+	# Public: confirms a certificate is genuine to whoever scans its QR code.
+	{
+		"from_route": "/verify/<certificate_id>",
+		"to_route": "verify_certificate",
+	},
 ]
 
 website_redirects = [
@@ -260,6 +265,7 @@ jinja = {
 		"lms.lms.utils.get_lms_route",
 		"lms.lms.utils.is_instructor",
 		"lms.lms.utils.get_palette",
+		"lms.lms.utils.get_qr_code_path",
 	],
 	"filters": [],
 }

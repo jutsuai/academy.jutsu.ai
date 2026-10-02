@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="{{ lang or 'en' }}">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<meta name="robots" content="noindex">
+	<title>{{ title | e }} · {{ brand_name | e }}</title>
+	<link rel="icon" href="{{ favicon }}">
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+	<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&display=swap" rel="stylesheet">
+	<style>
+		/* The page a certificate's QR code opens. Standalone on purpose: it is
+		   read on a phone by someone who may never have seen the site, so it
+		   carries no navigation, only the answer. Colours and type follow the
+		   certificate itself (print_format/certificate). */
+		*, *::before, *::after { box-sizing: border-box; }
+		html { -webkit-text-size-adjust: 100%; }
+		body {
+			margin: 0;
+			min-height: 100vh;
+			padding: 24px 16px 40px;
+			background-color: #EEF3F8;
+			font-family: "Geist", "Inter", -apple-system, "Segoe UI", sans-serif;
+			color: #16202E;
+			-webkit-font-smoothing: antialiased;
+		}
+		.card {
+			max-width: 560px;
+			margin: 0 auto;
+			background-color: #FFFFFF;
+			border: 1px solid #D5DEE9;
+			border-radius: 14px;
+			overflow: hidden;
+			box-shadow: 0 18px 40px -24px rgba(22, 32, 46, 0.35);
+		}
+		.hero { position: relative; height: 190px; background-color: #16202E; }
+		.hero-art { display: block; width: 100%; height: 100%; }
+		.content { padding: 28px 28px 30px; }
+
+		.status {
+			display: inline-flex;
+			align-items: center;
+			gap: 8px;
+			padding: 6px 12px 6px 8px;
+			border-radius: 999px;
+			font-size: 13px;
+			font-weight: 600;
+			letter-spacing: 0.01em;
+		}
+		.status svg { width: 18px; height: 18px; flex: none; }
+		.status-valid { background-color: #E7F6EE; color: #116B3F; }
+		.status-expired { background-color: #FDF1DC; color: #8A5A0B; }
+		.status-missing { background-color: #FCE9E9; color: #9B2226; }
+
+		.lede {
+			margin: 22px 0 4px;
+			font-size: 14px;
+			color: #5A6B80;
+		}
+		.name {
+			margin: 0;
+			font-weight: 600;
+			font-size: 36px;
+			line-height: 1.1;
+			letter-spacing: -0.025em;
+			overflow-wrap: anywhere;
+		}
+		.rule { width: 56px; height: 4px; margin: 18px 0; background-color: #00A2F3; }
+		.body { margin: 0 0 6px; font-size: 14px; color: #5A6B80; }
+		.award {
+			margin: 0;
+			font-weight: 600;
+			font-size: 21px;
+			line-height: 1.25;
+			letter-spacing: -0.012em;
+			overflow-wrap: anywhere;
+		}
+		.award a { color: inherit; text-decoration: none; border-bottom: 1px solid #B9C6D6; }
+		.award a:hover, .award a:focus-visible { border-bottom-color: #00A2F3; }
+
+		.facts { margin: 26px 0 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 18px 20px; }
+		.fact dt {
+			font-size: 10px;
+			font-weight: 600;
+			letter-spacing: 0.2em;
+			text-transform: uppercase;
+			color: #8496AB;
+		}
+		.fact dd { margin: 5px 0 0; font-size: 15px; font-weight: 600; overflow-wrap: anywhere; }
+		.fact-wide { grid-column: 1 / -1; }
+		.fact dd.mono {
+			font-family: "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace;
+			font-size: 14px;
+			font-weight: 400;
+			letter-spacing: 0.04em;
+		}
+		.expired-text { color: #8A5A0B; }
+
+		.missing-title { margin: 20px 0 8px; font-size: 22px; font-weight: 600; }
+		.missing-text { margin: 0; font-size: 15px; line-height: 1.6; color: #5A6B80; }
+
+		.footnote {
+			max-width: 560px;
+			margin: 18px auto 0;
+			padding: 0 6px;
+			font-size: 12.5px;
+			line-height: 1.6;
+			color: #7B8CA1;
+			text-align: center;
+		}
+		.footnote a { color: #0784C4; text-decoration: none; font-weight: 500; }
+		.footnote a:hover, .footnote a:focus-visible { text-decoration: underline; }
+
+		@media (max-width: 420px) {
+			.hero { height: 160px; }
+			.content { padding: 22px 20px 24px; }
+			.name { font-size: 31px; }
+			.award { font-size: 19px; }
+			.facts { grid-template-columns: 1fr; }
+		}
+	</style>
+</head>
+<body>
+	<main class="card">
+		<div class="hero"><svg class="hero-art" viewBox="0 0 1200 420" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect width="1200" height="420" fill="#16202E"/><circle cx="1200" cy="0" r="420" fill="#1C2A3D"/><circle cx="1200" cy="0" r="230" fill="#22344B"/><circle cx="0" cy="420" r="300" fill="#1C2A3D"/><path d="M522 227.2H592V424L557.0 390L522 424Z" fill="#0784C4"/><path d="M608 227.2H678V424L643.0 390L608 424Z" fill="#00A2F3"/><circle cx="600" cy="170" r="104" fill="#F0C566"/><circle cx="600" cy="170" r="92" fill="#16202E"/><circle cx="600" cy="170" r="80" fill="#00A2F3"/><g transform="translate(569.0 130.8) scale(0.746) translate(0 -35.84)"><path d="M0 57.627V35.8418H83.0678V99.303C83.0678 122.984 63.7154 140.842 41.2971 140.842C17.7083 140.842 0 121.148 0 99.303V83.3903H21.7852V99.303C21.7852 111.003 31.588 119.054 41.2971 119.054C52.4085 119.054 61.2827 110.326 61.2827 99.303V57.627H0Z" fill="#FFFFFF"/><path d="M10.8919 77.8967C14.9199 77.8967 18.1852 74.6313 18.1852 70.6034C18.1852 66.5754 14.9199 63.3101 10.8919 63.3101C6.86395 63.3101 3.59863 66.5754 3.59863 70.6034C3.59863 74.6313 6.86395 77.8967 10.8919 77.8967Z" fill="#FFD37C"/></g></svg></div>
+
+		<div class="content">
+			{% if certificate %}
+				{% if certificate.expired %}
+					<span class="status status-expired">
+						<svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><circle cx="10" cy="10" r="9" fill="#C98A1B"/><path d="M10 5.5v5M10 13.6v.4" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg>
+						{{ _("Genuine certificate, now expired") }}
+					</span>
+				{% else %}
+					<span class="status status-valid">
+						<svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><circle cx="10" cy="10" r="9" fill="#1B9A5B"/><path d="M6 10.4l2.6 2.6L14 7.4" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+						{{ _("Verified certificate") }}
+					</span>
+				{% endif %}
+
+				<p class="lede">{{ _("Awarded to") }}</p>
+				<h1 class="name">{{ certificate.member_name | e }}</h1>
+				<div class="rule"></div>
+
+				<p class="body">
+					{% if certificate.is_course %}
+						{{ _("for successfully completing the course") }}
+					{% else %}
+						{{ _("for successfully completing the batch") }}
+					{% endif %}
+				</p>
+				<p class="award">
+					{% if certificate.course_url %}
+						<a href="{{ certificate.course_url | e }}">{{ certificate.award_title | e }}</a>
+					{% else %}
+						{{ certificate.award_title | e }}
+					{% endif %}
+				</p>
+
+				<dl class="facts">
+					{% if certificate.issue_date %}
+					<div class="fact">
+						<dt>{{ _("Issued On") }}</dt>
+						<dd>{{ certificate.issue_date }}</dd>
+					</div>
+					{% endif %}
+					{% if certificate.expiry_date %}
+					<div class="fact">
+						<dt>{{ _("Expired On") if certificate.expired else _("Valid until") }}</dt>
+						<dd{% if certificate.expired %} class="expired-text"{% endif %}>{{ certificate.expiry_date }}</dd>
+					</div>
+					{% endif %}
+					{% if certificate.batch_title %}
+					<div class="fact">
+						<dt>{{ _("Batch") }}</dt>
+						<dd>{{ certificate.batch_title | e }}</dd>
+					</div>
+					{% endif %}
+					<div class="fact">
+						<dt>{{ _("Issued By") }}</dt>
+						<dd>{{ brand_name | e }}</dd>
+					</div>
+					<div class="fact fact-wide">
+						<dt>{{ _("Certificate ID") }}</dt>
+						<dd class="mono">{{ certificate.name | e }}</dd>
+					</div>
+				</dl>
+			{% else %}
+				<span class="status status-missing">
+					<svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><circle cx="10" cy="10" r="9" fill="#C8373B"/><path d="M7 7l6 6M13 7l-6 6" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg>
+					{{ _("Certificate not found") }}
+				</span>
+				<h1 class="missing-title">{{ _("We could not verify this certificate") }}</h1>
+				<p class="missing-text">
+					{{ _("No certificate has been issued with this ID. Check that the link or QR code was copied in full.") }}
+				</p>
+				{% if certificate_id %}
+				<dl class="facts">
+					<div class="fact fact-wide">
+						<dt>{{ _("Certificate ID") }}</dt>
+						<dd class="mono">{{ certificate_id | truncate(60, True) | e }}</dd>
+					</div>
+				</dl>
+				{% endif %}
+			{% endif %}
+		</div>
+	</main>
+
+	<p class="footnote">
+		{{ _("This page confirms a certificate against the issuer's records.") }}
+		<a href="{{ home_url }}">{{ brand_name | e }}</a>
+	</p>
+</body>
+</html>

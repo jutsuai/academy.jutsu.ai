@@ -3008,6 +3008,31 @@ def get_palette(full_name: str) -> list:
 	return palette[idx % 8]
 
 
+def get_qr_code_path(data: str) -> dict:
+	"""SVG path data for a QR code of `data`, for a print format to draw inline.
+
+	wkhtmltopdf runs with JavaScript disabled, so the code cannot be drawn in the
+	page, and an inline <svg> is the image form its old WebKit renders dependably.
+	Returns the module count (the viewBox is `0 0 size size`) and one path of the
+	dark modules, with each horizontal run merged into a single rectangle.
+	"""
+	import pyqrcode
+
+	rows = pyqrcode.create(data, error="M").code
+	path = []
+	for y, row in enumerate(rows):
+		x = 0
+		while x < len(row):
+			if not row[x]:
+				x += 1
+				continue
+			start = x
+			while x < len(row) and row[x]:
+				x += 1
+			path.append(f"M{start} {y}h{x - start}v1h-{x - start}z")
+	return {"size": len(rows), "path": "".join(path)}
+
+
 @frappe.whitelist(allow_guest=True)
 @rate_limit(limit=500, seconds=60 * 60)
 def get_related_courses(course: str) -> list:

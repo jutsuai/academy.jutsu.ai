@@ -494,6 +494,7 @@ import {
 	watch,
 } from 'vue'
 import { timeAgo } from '@/utils/format'
+import { announceLessonProgress } from '@/utils/lessonProgressSignal'
 import ProgressBar from '@/components/ProgressBar.vue'
 import ResponsiveListView from '@/components/ResponsiveListView.vue'
 import RichTextEditor from '@/components/RichTextEditor.vue'
@@ -984,11 +985,12 @@ const markLessonProgress = () => {
 	let lessonIndex = pathname.pop().split('-')
 
 	if (lessonIndex.length == 2) {
+		const course = pathname[3]
 		call('lms.lms.api.mark_lesson_progress', {
-			course: pathname[3],
+			course,
 			chapter_number: lessonIndex[0],
 			lesson_number: lessonIndex[1],
-		})
+		}).then((progress) => announceLessonProgress({ course, progress }))
 	}
 }
 

@@ -1751,7 +1751,7 @@ def mark_lesson_progress(course: str, chapter_number: int, lesson_number: int):
 	lesson_name = frappe.get_value(
 		"Lesson Reference", {"parent": chapter_name, "idx": lesson_number}, "lesson"
 	)
-	save_progress(lesson_name, course)
+	return save_progress(lesson_name, course)
 
 
 @frappe.whitelist()

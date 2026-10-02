@@ -413,6 +413,7 @@ import {
 	shouldStartDwellTimer,
 	shouldAttachVideoFallback,
 } from '@/utils/lessonProgress'
+import { onLessonProgressAnnounced } from '@/utils/lessonProgressSignal'
 import EditorJS from '@editorjs/editorjs'
 import LessonContent from '@/components/LessonContent.vue'
 import CourseInstructors from '@/components/CourseInstructors.vue'
@@ -495,6 +496,7 @@ onMounted(() => {
 	}
 	document.addEventListener('fullscreenchange', attachFullscreenEvent)
 	socket.on('update_lesson_progress', onLessonProgress)
+	stopListeningForProgress = onLessonProgressAnnounced(onProgressAnnounced)
 })
 
 const onLessonProgress = (data) => {
@@ -506,6 +508,20 @@ const onLessonProgress = (data) => {
 	// lesson. The server now addresses it to the completing member alone.
 	// Skip the ones the progress resource already reloaded for.
 	if (data.lesson !== completedLesson.value) outline.reload()
+}
+
+// The same news as onLessonProgress, delivered by the quiz or assignment that
+// saved the progress rather than by the socket. Realtime is not reachable on
+// every deployment, and without it a learner who passed a quiz had to refresh
+// the page before Next appeared. No completedLesson check here: the dwell timer
+// sets that for a quiz lesson before the quiz is passed, which is exactly when
+// this reload is needed.
+let stopListeningForProgress = null
+const onProgressAnnounced = (detail) => {
+	if (detail?.course !== props.courseName) return
+	if (typeof detail.progress === 'number')
+		lessonProgress.value = detail.progress
+	outline.reload()
 }
 
 const attachFullscreenEvent = () => {
@@ -525,6 +541,7 @@ onBeforeUnmount(() => {
 	// Without this the handler outlives the page, and every revisit adds another
 	// one — so a single progress event fires one outline reload per past visit.
 	socket.off('update_lesson_progress', onLessonProgress)
+	stopListeningForProgress?.()
 	if (collapsedByLesson) sidebarStore.isSidebarCollapsed = false
 	trackVideoWatchDuration()
 })

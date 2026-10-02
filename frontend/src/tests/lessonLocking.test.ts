@@ -9,6 +9,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
+import { announceLessonProgress } from '@/utils/lessonProgressSignal'
 
 const pushMock = vi.hoisted(() => vi.fn())
 const replaceMock = vi.hoisted(() => vi.fn())
@@ -513,6 +514,68 @@ describe('Lesson.vue unlocks the next lesson without a reload', () => {
 		outline.reload.mockClear()
 
 		progressHandler()({ course: 'COURSE-1', lesson: 'L1', progress: 40 })
+
+		expect(outline.reload).not.toHaveBeenCalled()
+	})
+
+	it('reloads the outline when a quiz announces progress, with no socket', async () => {
+		// Realtime is not reachable on every deployment. A learner who passed a
+		// quiz there had the lesson completed server-side but saw no Next button
+		// until they refreshed, because the socket event above never arrived.
+		wrapper = await mountLesson()
+		const outline = findResource('lms.lms.utils.get_course_outline')
+		findResource('lms.lms.utils.get_lesson').data = {
+			...baseLesson,
+			membership: { progress: 0 },
+		}
+		await flushPromises()
+		outline.reload.mockClear()
+
+		announceLessonProgress({ course: 'COURSE-1', progress: 40 })
+
+		expect(outline.reload).toHaveBeenCalledTimes(1)
+		expect((wrapper.vm as any).lessonProgress).toBe(40)
+	})
+
+	it('reloads for a quiz even after the dwell timer marked this lesson', async () => {
+		// On a quiz lesson the dwell timer's save_progress succeeds without
+		// completing anything, yet still records the lesson as the one this page
+		// handled. The announcement must not be skipped on that account.
+		wrapper = await mountLesson()
+		const outline = findResource('lms.lms.utils.get_course_outline')
+		findResource('lms.lms.utils.get_lesson').data = {
+			...baseLesson,
+			membership: { progress: 0 },
+		}
+		await flushPromises()
+		;(wrapper.vm as any).markProgress()
+		await flushPromises()
+		outline.reload.mockClear()
+
+		announceLessonProgress({ course: 'COURSE-1' })
+
+		expect(outline.reload).toHaveBeenCalledTimes(1)
+	})
+
+	it('ignores an announcement for another course', async () => {
+		wrapper = await mountLesson()
+		const outline = findResource('lms.lms.utils.get_course_outline')
+		outline.reload.mockClear()
+
+		announceLessonProgress({ course: 'OTHER-COURSE', progress: 90 })
+
+		expect(outline.reload).not.toHaveBeenCalled()
+		expect((wrapper.vm as any).lessonProgress).not.toBe(90)
+	})
+
+	it('stops listening for announcements when the page is left', async () => {
+		wrapper = await mountLesson()
+		const outline = findResource('lms.lms.utils.get_course_outline')
+		wrapper.unmount()
+		wrapper = null
+		outline.reload.mockClear()
+
+		announceLessonProgress({ course: 'COURSE-1', progress: 40 })
 
 		expect(outline.reload).not.toHaveBeenCalled()
 	})

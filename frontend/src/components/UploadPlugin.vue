@@ -9,8 +9,9 @@
 	/>
 </template>
 <script setup>
-import { FileUploader } from 'frappe-ui'
+import { FileUploader, toast } from 'frappe-ui'
 import { onMounted, ref, nextTick, computed } from 'vue'
+import { lessonUploadArgs, validateLessonFile } from '@/utils/lessonUpload'
 
 const fileUploader = ref(null)
 const emit = defineEmits(['fileUploaded'])
@@ -26,18 +27,7 @@ const props = defineProps({
 	},
 })
 
-// Attach to the lesson only once it exists: a null docname with doctype set
-// makes the File doctype reject the upload.
-const uploadArgs = computed(() => {
-	const args = { private: true }
-	const docname = props.uploadContext?.docname
-	if (docname) {
-		args.doctype = 'Course Lesson'
-		args.docname = docname
-		args.fieldname = props.uploadContext?.fieldname || 'content'
-	}
-	return args
-})
+const uploadArgs = computed(() => lessonUploadArgs(props.uploadContext))
 
 onMounted(async () => {
 	await nextTick()
@@ -54,11 +44,12 @@ const addFile = (file) => {
 	})
 }
 
+// The uploader is hidden (it only exists to open the file picker), so the
+// message it would render is never seen: a refused file used to do nothing.
 const validateFile = (file) => {
-	let extension = file.name.split('.').pop().toLowerCase()
-	if (!['jpg', 'jpeg', 'png', 'mp4', 'mov', 'mp3', 'pdf'].includes(extension)) {
-		return 'Only image and video files are allowed.'
-	}
+	const message = validateLessonFile(file)
+	if (message) toast.error(__(message))
+	return message
 }
 
 const isVideo = (type) => {

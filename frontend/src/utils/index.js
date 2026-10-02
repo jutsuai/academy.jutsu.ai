@@ -22,7 +22,7 @@ import {
 } from '@/utils/blockTunes/clipboardTunes'
 import dayjs from '@/utils/dayjs'
 import Embed from '@editorjs/embed'
-import SimpleImage from '@editorjs/simple-image'
+import { LessonImage } from '@/utils/lessonImage'
 import Table from '@editorjs/table'
 import DOMPurify from 'dompurify'
 import { decodeEntities } from './inertHtml'
@@ -183,7 +183,10 @@ export function getEditorTools(
 			class: Markdown,
 			inlineToolbar: INLINE_TOOLBAR_ORDER,
 		},
-		image: SimpleImage,
+		image: {
+			class: LessonImage,
+			config: uploadContext,
+		},
 		paragraph: {
 			class: Paragraph,
 			inlineToolbar: INLINE_TOOLBAR_ORDER,

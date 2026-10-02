@@ -1,7 +1,10 @@
 import { describe, expect, it, vi } from 'vitest'
 
 // Stub FileUploader so we can read the uploadArgs it receives.
+const toastError = vi.hoisted(() => vi.fn())
+
 vi.mock('frappe-ui', () => ({
+	toast: { error: toastError },
 	FileUploader: {
 		name: 'FileUploader',
 		props: ['uploadArgs', 'fileTypes', 'validateFile'],
@@ -56,5 +59,29 @@ describe('UploadPlugin: uploadArgs', () => {
 		const a = args(wrapper)
 		expect(a.doctype).toBe('Course Lesson')
 		expect(a.docname).toBe('lesson-456')
+	})
+})
+
+describe('UploadPlugin: which files it accepts', () => {
+	// The app installs this on window (translation.js); script code calls it bare.
+	;(globalThis as any).__ = (s: string) => s
+
+	const validate = (name: string) =>
+		mountPlugin({ docname: 'lesson-1', fieldname: 'content' })
+			.findComponent({ name: 'FileUploader' })
+			.props('validateFile')({ name })
+
+	it('accepts a WebP image', () => {
+		// The list predated WebP, so a .webp picked through the Upload block was
+		// refused — and without a word, because the uploader is hidden.
+		toastError.mockClear()
+		expect(validate('diagram.webp')).toBeUndefined()
+		expect(toastError).not.toHaveBeenCalled()
+	})
+
+	it('tells the author when a file is refused', () => {
+		toastError.mockClear()
+		expect(validate('notes.txt')).toBeTypeOf('string')
+		expect(toastError).toHaveBeenCalledTimes(1)
 	})
 })

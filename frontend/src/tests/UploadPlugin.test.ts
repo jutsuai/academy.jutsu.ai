@@ -29,7 +29,7 @@ describe('UploadPlugin: uploadArgs', () => {
 	it('omits doctype/docname when the lesson has no docname yet', () => {
 		const wrapper = mountPlugin({ docname: null, fieldname: 'content' })
 		const a = args(wrapper)
-		expect(a.private).toBe(true)
+		expect(a.private).toBe(false)
 		expect('doctype' in a).toBe(false)
 		expect('docname' in a).toBe(false)
 	})

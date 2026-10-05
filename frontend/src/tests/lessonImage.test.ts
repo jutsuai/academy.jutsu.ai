@@ -75,7 +75,7 @@ describe('LessonImage: a pasted or dropped image file', () => {
 	})
 
 	it('compresses first and attaches the upload to the lesson', async () => {
-		uploadMock.mockResolvedValue({ file_url: '/private/files/diagram.webp' })
+		uploadMock.mockResolvedValue({ file_url: '/files/diagram.webp' })
 		const { block } = mountBlock({ docname: 'LESSON-1', fieldname: 'content' })
 
 		block.onPaste({ type: 'file', detail: { file: png() } })
@@ -84,7 +84,7 @@ describe('LessonImage: a pasted or dropped image file', () => {
 		const [file, args] = uploadMock.mock.calls[0]
 		expect(file.type).toBe('image/webp')
 		expect(args).toEqual({
-			private: true,
+			private: false,
 			doctype: 'Course Lesson',
 			docname: 'LESSON-1',
 			fieldname: 'content',
@@ -214,10 +214,27 @@ describe('lesson uploads', () => {
 		}
 	)
 
-	it('uploads privately and unattached until the lesson exists', () => {
+	it('uploads publicly, and unattached until the lesson exists', () => {
+		// A private lesson file loads only for its uploader and Administrator
+		// wherever the stored URL is used as it is, the lesson editor first.
 		expect(lessonUploadArgs({ docname: null, fieldname: 'content' })).toEqual({
-			private: true,
+			private: false,
 		})
-		expect(lessonUploadArgs(undefined)).toEqual({ private: true })
+		expect(lessonUploadArgs(undefined)).toEqual({ private: false })
+	})
+
+	it('keeps a file added to the instructor notes private', () => {
+		// Students are never sent that field, so its files stay behind the gate.
+		expect(
+			lessonUploadArgs({
+				docname: 'LESSON-1',
+				fieldname: 'instructor_content',
+			})
+		).toEqual({
+			private: true,
+			doctype: 'Course Lesson',
+			docname: 'LESSON-1',
+			fieldname: 'instructor_content',
+		})
 	})
 })

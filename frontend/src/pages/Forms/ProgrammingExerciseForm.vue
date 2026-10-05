@@ -46,6 +46,7 @@
 							:required="true"
 						/>
 						<RichTextEditor
+							:uploadArgs="{ private: false }"
 							:content="exercise.problem_statement"
 							@change="(val: string) => (exercise.problem_statement = val)"
 							:editable="true"

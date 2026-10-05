@@ -17,6 +17,7 @@
 					<div class="space-y-1.5">
 						<InputLabel :id="questionLabelId" :label="__('Question')" />
 						<RichTextEditor
+							:uploadArgs="{ private: false }"
 							:content="question.question"
 							@change="(val) => (question.question = val)"
 							:editable="true"

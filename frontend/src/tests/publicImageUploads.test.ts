@@ -194,6 +194,12 @@ const MANIFEST: Record<string, Privacy[]> = {
 	// course page, so images inserted into it must load for every learner.
 	'components/Courses/CourseOverviewSection.vue': ['public'],
 	'pages/Forms/NewCourseForm.vue': ['public'],
+	// Shown to every learner inside a lesson: the quiz question, the assignment
+	// brief and the exercise's problem statement. Nothing rewrites their HTML,
+	// so a private image in one is a 403 for everyone but its uploader.
+	'pages/Forms/AssignmentForm.vue': ['public'],
+	'pages/Forms/ProgrammingExerciseForm.vue': ['public'],
+	'pages/Forms/QuizQuestionForm.vue': ['public'],
 	// Deliberately not readable by other users.
 	'components/Assignment.vue': ['private', 'private', 'private'],
 	'components/Modals/JobApplicationModal.vue': ['private'],
@@ -203,7 +209,8 @@ const MANIFEST: Record<string, Privacy[]> = {
 	// `computed` is any other expression. `undeclared` passes no uploadArgs at
 	// all — for a RichTextEditor that means private, because its uploadFile
 	// defaults `private: true`. Safe by exposure, but it is why an image pasted
-	// into a lesson body can end up invisible to everyone but its author.
+	// into one can end up invisible to everyone but its author. UploadPlugin is
+	// the lesson Upload block; lessonUploadArgs makes it public.
 	// Auditing those call sites is separate work, deliberately not done here;
 	// the manifest exists so the next person sees the whole list at once rather
 	// than discovering it one broken image at a time.
@@ -215,7 +222,6 @@ const MANIFEST: Record<string, Privacy[]> = {
 	'components/Settings/EmailTemplate/EmailTemplateEdit.vue': ['undeclared'],
 	'components/Settings/SettingFields.vue': ['per-field'],
 	'components/UploadPlugin.vue': ['computed'],
-	'pages/Forms/AssignmentForm.vue': ['undeclared'],
 	'pages/Forms/AnnouncementForm.vue': ['undeclared'],
 	'pages/Batches/BatchForm.vue': ['undeclared'],
 	'pages/Forms/EmailTemplateForm.vue': ['undeclared'],
@@ -223,8 +229,6 @@ const MANIFEST: Record<string, Privacy[]> = {
 	'pages/JobApplications.vue': ['undeclared'],
 	'pages/Forms/JobForm.vue': ['undeclared'],
 	'pages/Forms/ProfileEditForm.vue': ['undeclared'],
-	'pages/Forms/ProgrammingExerciseForm.vue': ['undeclared'],
-	'pages/Forms/QuizQuestionForm.vue': ['undeclared'],
 }
 
 describe('every uploader has the privacy the manifest states', () => {

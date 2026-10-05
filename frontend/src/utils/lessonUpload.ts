@@ -7,18 +7,27 @@ export type LessonUploadContext = {
 }
 
 type LessonUploadArgs = {
-	private: true
+	private: boolean
 	doctype?: 'Course Lesson'
 	docname?: string
 	fieldname?: string
 }
 
+// The lesson fields only the course's authors read. Their files stay private.
+const INSTRUCTOR_FIELDS = ['instructor_content', 'instructor_notes']
+
+// Lesson files are public. Frappe serves a private file only to its uploader
+// and Administrator, so anyone else who met the stored URL as it is (the
+// lesson editor loads it that way) saw a broken image.
+//
 // Attach to the lesson only once it exists: a null docname with doctype set
 // makes the File doctype reject the upload.
 export function lessonUploadArgs(
 	context?: LessonUploadContext | null
 ): LessonUploadArgs {
-	const args: LessonUploadArgs = { private: true }
+	const args: LessonUploadArgs = {
+		private: INSTRUCTOR_FIELDS.includes(context?.fieldname ?? ''),
+	}
 	const docname = context?.docname
 	if (docname) {
 		args.doctype = 'Course Lesson'
